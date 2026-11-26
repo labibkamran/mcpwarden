@@ -1,8 +1,10 @@
-package target
+package target_test
 
 import (
 	"strings"
 	"testing"
+
+	"github.com/labibkamran/mcpwarden/internal/target"
 )
 
 func TestParseURLNormalizes(t *testing.T) {
@@ -26,13 +28,13 @@ func TestParseURLNormalizes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseURL(tt.raw)
+			got, err := target.ParseURL(tt.raw)
 
 			if err != nil {
-				t.Fatalf("ParseURL(%q) error: %v", tt.raw, err)
+				t.Fatalf("target.ParseURL(%q) error: %v", tt.raw, err)
 			}
 			if got.String() != tt.want {
-				t.Errorf("ParseURL(%q) = %q, want %q", tt.raw, got.String(), tt.want)
+				t.Errorf("target.ParseURL(%q) = %q, want %q", tt.raw, got.String(), tt.want)
 			}
 		})
 	}
@@ -58,10 +60,10 @@ func TestParseURLRejects(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseURL(tt.raw)
+			_, err := target.ParseURL(tt.raw)
 
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("ParseURL(%q) error = %v, want it to contain %q", tt.raw, err, tt.wantErr)
+				t.Errorf("target.ParseURL(%q) error = %v, want it to contain %q", tt.raw, err, tt.wantErr)
 			}
 		})
 	}
@@ -74,10 +76,10 @@ func TestParseURLErrorsDoNotLeakCredentials(t *testing.T) {
 	}
 
 	for _, raw := range inputs {
-		_, err := ParseURL(raw)
+		_, err := target.ParseURL(raw)
 
 		if err == nil || strings.Contains(err.Error(), "s3cret") {
-			t.Errorf("ParseURL(%q) error = %v, want an error without the password", raw, err)
+			t.Errorf("target.ParseURL(%q) error = %v, want an error without the password", raw, err)
 		}
 	}
 }

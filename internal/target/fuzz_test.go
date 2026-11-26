@@ -1,6 +1,10 @@
-package target
+package target_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/labibkamran/mcpwarden/internal/target"
+)
 
 // FuzzParseURL checks that any accepted URL is http(s), has a host, and is
 // already normalized: parsing its string form again yields the same string.
@@ -20,19 +24,19 @@ func FuzzParseURL(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, raw string) {
-		got, err := ParseURL(raw)
+		got, err := target.ParseURL(raw)
 		if err != nil {
 			return
 		}
 		if got.URL.Scheme != "http" && got.URL.Scheme != "https" {
-			t.Fatalf("ParseURL(%q) accepted scheme %q", raw, got.URL.Scheme)
+			t.Fatalf("target.ParseURL(%q) accepted scheme %q", raw, got.URL.Scheme)
 		}
 		if got.URL.Hostname() == "" {
-			t.Fatalf("ParseURL(%q) accepted an empty host", raw)
+			t.Fatalf("target.ParseURL(%q) accepted an empty host", raw)
 		}
-		again, err := ParseURL(got.String())
+		again, err := target.ParseURL(got.String())
 		if err != nil {
-			t.Fatalf("ParseURL(%q) = %q, which no longer parses: %v", raw, got, err)
+			t.Fatalf("target.ParseURL(%q) = %q, which no longer parses: %v", raw, got, err)
 		}
 		if again.String() != got.String() {
 			t.Fatalf("not idempotent: %q -> %q -> %q", raw, got, again)
