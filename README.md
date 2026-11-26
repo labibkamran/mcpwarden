@@ -5,7 +5,28 @@ Fast, offline security scanner for MCP servers — checks 2026-07-28 auth confor
 
 ## Status
 
-Early development (milestone 1: foundation). `mcpwarden version` works; `scan` and `list-checks` are not implemented yet.
+Early development (milestone 1: foundation). `scan` parses and validates all of its flags and targets, but scanning itself lands in milestone 2, so a valid scan exits 2 for now. `list-checks` arrives with the first rules.
+
+## Usage
+
+```sh
+mcpwarden scan [URL...] [--config PATH]
+               [--format text|json|sarif] [--output FILE]
+               [--fail-on low|medium|high|critical]   # default high
+               [--timeout 10s] [--concurrency 16]
+               [--header "Authorization: Bearer $TOKEN"]
+               [--enable MW011] [--disable MW003]
+mcpwarden list-checks
+mcpwarden version
+```
+
+Flags and URLs can come in any order; `--header`, `--enable` and `--disable` can repeat. Only `http` and `https` URLs are accepted, and URLs with embedded credentials are rejected: pass credentials with `--header`, whose values never appear in output.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | Scan finished; no finding at or above `--fail-on` |
+| 1 | Scan finished; at least one finding at or above `--fail-on` |
+| 2 | Usage error or scanner failure; no reliable result |
 
 ## Build
 
