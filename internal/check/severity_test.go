@@ -44,7 +44,7 @@ func TestSeverityStringRoundTrips(t *testing.T) {
 }
 
 func TestSeverityOrder(t *testing.T) {
-	if !(SeverityLow < SeverityMedium && SeverityMedium < SeverityHigh && SeverityHigh < SeverityCritical) {
+	if SeverityLow >= SeverityMedium || SeverityMedium >= SeverityHigh || SeverityHigh >= SeverityCritical {
 		t.Error("severities must order low < medium < high < critical for --fail-on comparisons")
 	}
 }

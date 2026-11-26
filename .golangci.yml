@@ -30,6 +30,10 @@ linters:
       # Table-driven tests are long by design.
       - path: _test\.go
         linters: [funlen]
+      # Redaction tests need fake credentials in fixtures.
+      - path: _test\.go
+        linters: [gosec]
+        text: G101
       # A CLI cannot act on a failed write to its own stdout/stderr.
       # Report writers in internal/ must still check every write.
       - path: ^cmd/
