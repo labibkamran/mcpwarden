@@ -1,59 +1,57 @@
-package cli
+package cli_test
 
 import (
-	"flag"
-	"io"
 	"slices"
 	"testing"
+
+	"github.com/labibkamran/mcpwarden/internal/cli"
 )
 
-func TestParseInterspersed(t *testing.T) {
+func TestScanFlagsAndURLsInAnyOrder(t *testing.T) {
 	tests := []struct {
-		name           string
-		args           []string
-		wantPositional []string
-		wantFormat     string
-		wantHeaders    []string
+		name       string
+		args       []string
+		wantURLs   []string
+		wantFormat string
 	}{
-		{name: "flags first", args: []string{"--format", "json", "https://a"}, wantPositional: []string{"https://a"}, wantFormat: "json"},
-		{name: "flags last", args: []string{"https://a", "--format", "json"}, wantPositional: []string{"https://a"}, wantFormat: "json"},
-		{name: "flags between", args: []string{"https://a", "-format=json", "https://b"}, wantPositional: []string{"https://a", "https://b"}, wantFormat: "json"},
-		{name: "repeated flag keeps order", args: []string{"--header", "A: 1", "x", "--header", "B: 2"}, wantPositional: []string{"x"}, wantHeaders: []string{"A: 1", "B: 2"}},
-		{name: "no args", args: nil, wantPositional: nil},
+		{name: "flags first", args: []string{"--format", "json", "https://a/"}, wantURLs: []string{"https://a/"}, wantFormat: "json"},
+		{name: "flags last", args: []string{"https://a/", "--format", "json"}, wantURLs: []string{"https://a/"}, wantFormat: "json"},
+		{name: "flags between", args: []string{"https://a/", "-format=json", "https://b/"}, wantURLs: []string{"https://a/", "https://b/"}, wantFormat: "json"},
+		{name: "repeated flag around a url", args: []string{"--header", "A: 1", "https://a/", "--header", "B: 2"}, wantURLs: []string{"https://a/"}, wantFormat: "text"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fs := flag.NewFlagSet("test", flag.ContinueOnError)
-			format := fs.String("format", "", "")
-			var headers stringList
-			fs.Var(&headers, "header", "")
-
-			got, err := parseInterspersed(fs, tt.args)
+			opts, err := cli.ParseScanArgs(tt.args)
 
 			if err != nil {
-				t.Fatalf("parseInterspersed error: %v", err)
+				t.Fatalf("ParseScanArgs error: %v", err)
 			}
-			if !slices.Equal(got, tt.wantPositional) {
-				t.Errorf("positional = %q, want %q", got, tt.wantPositional)
+			if got := targetStrings(opts); !slices.Equal(got, tt.wantURLs) {
+				t.Errorf("Targets = %q, want %q", got, tt.wantURLs)
 			}
-			if *format != tt.wantFormat {
-				t.Errorf("format = %q, want %q", *format, tt.wantFormat)
-			}
-			if !slices.Equal(headers, tt.wantHeaders) {
-				t.Errorf("headers = %q, want %q", headers, tt.wantHeaders)
+			if opts.Format != tt.wantFormat {
+				t.Errorf("Format = %q, want %q", opts.Format, tt.wantFormat)
 			}
 		})
 	}
 }
 
-func TestParseInterspersedUnknownFlag(t *testing.T) {
-	fs := flag.NewFlagSet("test", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
+func TestScanRepeatedHeadersAreAllKept(t *testing.T) {
+	opts, err := cli.ParseScanArgs([]string{"--header", "A: 1", "https://a/", "--header", "B: 2"})
 
-	_, err := parseInterspersed(fs, []string{"https://a", "--bogus"})
-
-	if err == nil {
-		t.Error("parseInterspersed accepted an unknown flag after a positional argument")
+	if err != nil {
+		t.Fatalf("ParseScanArgs error: %v", err)
 	}
+	if opts.Headers.Get("A") != "1" || opts.Headers.Get("B") != "2" {
+		t.Errorf("Headers = %v, want A: 1 and B: 2", opts.Headers)
+	}
+}
+
+func targetStrings(opts cli.ScanOptions) []string {
+	var urls []string
+	for _, t := range opts.Targets {
+		urls = append(urls, t.String())
+	}
+	return urls
 }

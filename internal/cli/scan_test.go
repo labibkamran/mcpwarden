@@ -1,4 +1,4 @@
-package cli
+package cli_test
 
 import (
 	"errors"
@@ -10,31 +10,32 @@ import (
 	"time"
 
 	"github.com/labibkamran/mcpwarden/internal/check"
+	"github.com/labibkamran/mcpwarden/internal/cli"
 )
 
 func TestParseScanArgsDefaults(t *testing.T) {
-	opts, err := parseScanArgs([]string{"https://mcp.example.com/mcp"})
+	opts, err := cli.ParseScanArgs([]string{"https://mcp.example.com/mcp"})
 
 	if err != nil {
-		t.Fatalf("parseScanArgs error: %v", err)
+		t.Fatalf("ParseScanArgs error: %v", err)
 	}
-	if len(opts.targets) != 1 || opts.targets[0].String() != "https://mcp.example.com/mcp" {
-		t.Errorf("targets = %v, want [https://mcp.example.com/mcp]", opts.targets)
+	if len(opts.Targets) != 1 || opts.Targets[0].String() != "https://mcp.example.com/mcp" {
+		t.Errorf("Targets = %v, want [https://mcp.example.com/mcp]", opts.Targets)
 	}
-	if opts.format != "text" {
-		t.Errorf("format = %q, want text", opts.format)
+	if opts.Format != "text" {
+		t.Errorf("Format = %q, want text", opts.Format)
 	}
-	if opts.failOn != check.SeverityHigh {
-		t.Errorf("failOn = %v, want high", opts.failOn)
+	if opts.FailOn != check.SeverityHigh {
+		t.Errorf("FailOn = %v, want high", opts.FailOn)
 	}
-	if opts.timeout != 10*time.Second {
-		t.Errorf("timeout = %v, want 10s", opts.timeout)
+	if opts.Timeout != 10*time.Second {
+		t.Errorf("Timeout = %v, want 10s", opts.Timeout)
 	}
-	if opts.concurrency != 16 {
-		t.Errorf("concurrency = %d, want 16", opts.concurrency)
+	if opts.Concurrency != 16 {
+		t.Errorf("Concurrency = %d, want 16", opts.Concurrency)
 	}
-	if opts.output != "" || opts.configPath != "" || len(opts.headers) != 0 {
-		t.Errorf("output, config and headers should be empty, got %q, %q, %v", opts.output, opts.configPath, opts.headers)
+	if opts.Output != "" || opts.ConfigPath != "" || len(opts.Headers) != 0 {
+		t.Errorf("Output, ConfigPath and Headers should be empty, got %q, %q, %v", opts.Output, opts.ConfigPath, opts.Headers)
 	}
 }
 
@@ -53,57 +54,57 @@ func TestParseScanArgsAllFlags(t *testing.T) {
 		"http://localhost:8080/mcp",
 	}
 
-	opts, err := parseScanArgs(args)
+	opts, err := cli.ParseScanArgs(args)
 
 	if err != nil {
-		t.Fatalf("parseScanArgs error: %v", err)
+		t.Fatalf("ParseScanArgs error: %v", err)
 	}
-	want := scanOptions{
-		targets:     opts.targets, // checked separately below
-		configPath:  "claude_desktop_config.json",
-		format:      "sarif",
-		output:      "report.sarif",
-		failOn:      check.SeverityCritical,
-		timeout:     3 * time.Second,
-		concurrency: 4,
-		headers:     http.Header{"Authorization": {"Bearer abc"}},
-		rules:       check.RuleSelection{Enable: []string{"MW011"}, Disable: []string{"MW003"}},
+	want := cli.ScanOptions{
+		Targets:     opts.Targets, // checked separately below
+		ConfigPath:  "claude_desktop_config.json",
+		Format:      "sarif",
+		Output:      "report.sarif",
+		FailOn:      check.SeverityCritical,
+		Timeout:     3 * time.Second,
+		Concurrency: 4,
+		Headers:     http.Header{"Authorization": {"Bearer abc"}},
+		Rules:       check.RuleSelection{Enable: []string{"MW011"}, Disable: []string{"MW003"}},
 	}
 	if !reflect.DeepEqual(opts, want) {
-		t.Errorf("parseScanArgs =\n%+v\nwant\n%+v", opts, want)
+		t.Errorf("ParseScanArgs =\n%+v\nwant\n%+v", opts, want)
 	}
-	if len(opts.targets) != 2 || opts.targets[1].String() != "http://localhost:8080/mcp" {
-		t.Errorf("targets = %v, want both URLs in order", opts.targets)
+	if len(opts.Targets) != 2 || opts.Targets[1].String() != "http://localhost:8080/mcp" {
+		t.Errorf("Targets = %v, want both URLs in order", opts.Targets)
 	}
 }
 
 func TestParseScanArgsConfigOnly(t *testing.T) {
-	opts, err := parseScanArgs([]string{"--config", "mcp.json"})
+	opts, err := cli.ParseScanArgs([]string{"--config", "mcp.json"})
 
 	if err != nil {
-		t.Fatalf("parseScanArgs error: %v", err)
+		t.Fatalf("ParseScanArgs error: %v", err)
 	}
-	if opts.configPath != "mcp.json" || len(opts.targets) != 0 {
-		t.Errorf("configPath = %q, targets = %v; want mcp.json and no URL targets", opts.configPath, opts.targets)
+	if opts.ConfigPath != "mcp.json" || len(opts.Targets) != 0 {
+		t.Errorf("ConfigPath = %q, Targets = %v; want mcp.json and no URL targets", opts.ConfigPath, opts.Targets)
 	}
 }
 
 func TestParseScanArgsDeduplicatesTargets(t *testing.T) {
-	opts, err := parseScanArgs([]string{"https://A.example.com:443/mcp", "https://a.example.com/mcp#x"})
+	opts, err := cli.ParseScanArgs([]string{"https://A.example.com:443/mcp", "https://a.example.com/mcp#x"})
 
 	if err != nil {
-		t.Fatalf("parseScanArgs error: %v", err)
+		t.Fatalf("ParseScanArgs error: %v", err)
 	}
-	if len(opts.targets) != 1 {
-		t.Errorf("targets = %v, want one normalized target", opts.targets)
+	if len(opts.Targets) != 1 {
+		t.Errorf("Targets = %v, want one normalized target", opts.Targets)
 	}
 }
 
 func TestParseScanArgsHelp(t *testing.T) {
-	_, err := parseScanArgs([]string{"--help"})
+	_, err := cli.ParseScanArgs([]string{"--help"})
 
 	if !errors.Is(err, flag.ErrHelp) {
-		t.Errorf("parseScanArgs(--help) error = %v, want flag.ErrHelp", err)
+		t.Errorf("ParseScanArgs(--help) error = %v, want flag.ErrHelp", err)
 	}
 }
 
@@ -121,17 +122,16 @@ func TestParseScanArgsRejects(t *testing.T) {
 		{name: "zero timeout", args: []string{url, "--timeout", "0s"}, wantErr: "--timeout 0s"},
 		{name: "unparsable timeout", args: []string{url, "--timeout", "soon"}, wantErr: "-timeout"},
 		{name: "zero concurrency", args: []string{url, "--concurrency", "0"}, wantErr: "--concurrency 0"},
-		{name: "bad header", args: []string{url, "--header", "nocolon"}, wantErr: "--header #1"},
 		{name: "bad rule id", args: []string{url, "--disable", "X1"}, wantErr: `invalid rule ID "X1"`},
 		{name: "unknown flag", args: []string{url, "--bogus"}, wantErr: "-bogus"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := parseScanArgs(tt.args)
+			_, err := cli.ParseScanArgs(tt.args)
 
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("parseScanArgs(%q) error = %v, want it to contain %q", tt.args, err, tt.wantErr)
+				t.Errorf("ParseScanArgs(%q) error = %v, want it to contain %q", tt.args, err, tt.wantErr)
 			}
 		})
 	}

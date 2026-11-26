@@ -26,17 +26,17 @@ Scan only servers you own or are authorized to test.
 
 Flags:`
 
-// scanOptions is the validated configuration of one scan run.
-type scanOptions struct {
-	targets     []target.Target
-	configPath  string
-	format      string
-	output      string
-	failOn      check.Severity
-	timeout     time.Duration
-	concurrency int
-	headers     http.Header
-	rules       check.RuleSelection
+// ScanOptions is the validated configuration of one scan run.
+type ScanOptions struct {
+	Targets     []target.Target // normalized and deduplicated, in input order
+	ConfigPath  string          // MCP client config file; empty when not given
+	Format      string          // text, json or sarif
+	Output      string          // report file; empty means stdout
+	FailOn      check.Severity
+	Timeout     time.Duration // per request
+	Concurrency int
+	Headers     http.Header // never print values: they hold tokens (FR-022)
+	Rules       check.RuleSelection
 }
 
 // scanFlags holds raw flag values before validation.
@@ -49,7 +49,7 @@ type scanFlags struct {
 
 // runScan implements "mcpwarden scan" (FR-002, FR-003) and returns the exit code.
 func runScan(args []string, stdout, stderr io.Writer) int {
-	opts, err := parseScanArgs(args)
+	opts, err := ParseScanArgs(args)
 	if errors.Is(err, flag.ErrHelp) {
 		printScanUsage(stdout)
 		return ExitOK
@@ -59,17 +59,18 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		return ExitError
 	}
 	// ponytail: the probe and check engine land in M2; until then a valid scan cannot run.
-	fmt.Fprintf(stderr, "mcpwarden scan: scanning is not implemented yet (%d targets parsed)\n", len(opts.targets))
+	fmt.Fprintf(stderr, "mcpwarden scan: scanning is not implemented yet (%d targets parsed)\n", len(opts.Targets))
 	return ExitError
 }
 
-// parseScanArgs parses and validates the scan command's arguments.
+// ParseScanArgs parses and validates the scan command's arguments (the
+// arguments after "scan"). Flags and URLs may appear in any order.
 // It returns flag.ErrHelp when -h or --help was given.
-func parseScanArgs(args []string) (scanOptions, error) {
+func ParseScanArgs(args []string) (ScanOptions, error) {
 	var f scanFlags
 	urls, err := parseInterspersed(newScanFlagSet(&f), args)
 	if err != nil {
-		return scanOptions{}, err
+		return ScanOptions{}, err
 	}
 	return f.validate(urls)
 }
@@ -97,45 +98,45 @@ func printScanUsage(w io.Writer) {
 	fs.PrintDefaults()
 }
 
-func (f *scanFlags) validate(rawURLs []string) (scanOptions, error) {
+func (f *scanFlags) validate(rawURLs []string) (ScanOptions, error) {
 	targets, err := parseTargets(rawURLs)
 	if err != nil {
-		return scanOptions{}, err
+		return ScanOptions{}, err
 	}
 	if len(targets) == 0 && f.configPath == "" {
-		return scanOptions{}, errors.New("nothing to scan: pass a server URL or --config PATH")
+		return ScanOptions{}, errors.New("nothing to scan: pass a server URL or --config PATH")
 	}
 	if !isReportFormat(f.format) {
-		return scanOptions{}, fmt.Errorf("--format %q: want text, json or sarif", f.format)
+		return ScanOptions{}, fmt.Errorf("--format %q: want text, json or sarif", f.format)
 	}
 	failOn, err := check.ParseSeverity(f.failOn)
 	if err != nil {
-		return scanOptions{}, fmt.Errorf("--fail-on: %w", err)
+		return ScanOptions{}, fmt.Errorf("--fail-on: %w", err)
 	}
 	if f.timeout <= 0 {
-		return scanOptions{}, fmt.Errorf("--timeout %s: must be positive", f.timeout)
+		return ScanOptions{}, fmt.Errorf("--timeout %s: must be positive", f.timeout)
 	}
 	if f.concurrency < 1 {
-		return scanOptions{}, fmt.Errorf("--concurrency %d: must be at least 1", f.concurrency)
+		return ScanOptions{}, fmt.Errorf("--concurrency %d: must be at least 1", f.concurrency)
 	}
 	headers, err := parseHeaders(f.headers)
 	if err != nil {
-		return scanOptions{}, err
+		return ScanOptions{}, err
 	}
 	rules, err := check.ParseRuleSelection(f.enable, f.disable)
 	if err != nil {
-		return scanOptions{}, err
+		return ScanOptions{}, err
 	}
-	return scanOptions{
-		targets:     targets,
-		configPath:  f.configPath,
-		format:      f.format,
-		output:      f.output,
-		failOn:      failOn,
-		timeout:     f.timeout,
-		concurrency: f.concurrency,
-		headers:     headers,
-		rules:       rules,
+	return ScanOptions{
+		Targets:     targets,
+		ConfigPath:  f.configPath,
+		Format:      f.format,
+		Output:      f.output,
+		FailOn:      failOn,
+		Timeout:     f.timeout,
+		Concurrency: f.concurrency,
+		Headers:     headers,
+		Rules:       rules,
 	}, nil
 }
 
