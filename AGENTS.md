@@ -222,13 +222,17 @@ defaults, Google's testing guidance, and OWASP secure coding.
 
 ## 9. Comments and documentation
 
-- Code shows *what* and *how*; comments explain *why* (constraints, trade-offs, non-obvious decisions).
-- Do not restate the code. A comment that repeats the line below it is noise.
-- If a clear comment is hard to write, simplify the code instead.
-- Document every public function/type: purpose, inputs, outputs, errors, side effects.
-- Explain unidiomatic code, workarounds and bug fixes; link the spec, RFC or issue.
-- Keep comments in sync with code. Delete stale comments.
-- `TODO` comments include an owner or issue link.
+- **House style: comments go only at the start of a file.** No comments between lines, no trailing comments, no
+  doc comments on functions, types or fields. Lint is configured to allow undocumented exported identifiers.
+- The file header says what the file is for and anything a reader cannot see from the code: constraints,
+  trade-offs, defaults with their source, workarounds, and the SRS requirement, RFC or issue behind them.
+- In the package's main file the header sits directly above `package` (it becomes the package doc). In other
+  files, leave a blank line between the header and `package` so it is not merged into the package doc.
+- Write only necessary comments. Code shows *what* and *how*: when a line needs explaining, rename or extract
+  until it does not (e.g. `if isIPv6 := strings.Contains(host, ":"); isIPv6`).
+- Keep headers in sync with the code. Delete stale ones.
+- Config files (YAML, Makefile) follow the same rule: one header comment at the top. Exception: the
+  `# vX.Y.Z` comment after a pinned action SHA, which Dependabot reads.
 - Update the README and docs in the same change when behavior, flags or setup change.
 
 ## 10. Testing
