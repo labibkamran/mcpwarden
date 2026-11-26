@@ -1,4 +1,8 @@
-// Package target turns user input into scan targets.
+// Package target turns user input into scan targets. ParseURL accepts only http
+// and https (FR-005) and normalizes: scheme and host lowercased, default port and
+// fragment removed, empty path becomes "/". URLs with credentials are rejected and
+// parse errors drop the raw input (url.Error repeats it), so secrets never reach
+// output (FR-022). Config-file targets arrive with the config parser (FR-006).
 package target
 
 import (
@@ -10,27 +14,19 @@ import (
 	"strings"
 )
 
-// Target is one thing to scan. For now that is a remote MCP server URL;
-// config-file server entries arrive with the config parser (FR-006).
 type Target struct {
 	URL *url.URL
 }
 
-// String returns the normalized target URL.
 func (t Target) String() string {
 	return t.URL.String()
 }
 
-// ParseURL validates raw as an http or https server URL and normalizes it
-// (FR-005): the scheme and host are lowercased, a default port and the
-// fragment are removed, and an empty path becomes "/". URLs that carry
-// credentials are rejected so secrets never reach reports (FR-022).
 func ParseURL(raw string) (Target, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
 		var urlErr *url.Error
 		if errors.As(err, &urlErr) {
-			// url.Error repeats the raw input, which may hold credentials.
 			err = urlErr.Err
 		}
 		return Target{}, fmt.Errorf("invalid url: %w", err)
@@ -74,7 +70,7 @@ func normalizeHost(scheme, host, port string) string {
 	if port != "" {
 		return net.JoinHostPort(host, port)
 	}
-	if strings.Contains(host, ":") { // IPv6 literal
+	if isIPv6 := strings.Contains(host, ":"); isIPv6 {
 		return "[" + host + "]"
 	}
 	return host

@@ -1,3 +1,10 @@
+// The scan command (FR-002, FR-003, FR-004). Flags and URLs may appear in any
+// order and are validated into ScanOptions; usage errors exit 2 and -h returns
+// flag.ErrHelp. Defaults: 10 s request timeout (FR-012), concurrency 16, fail-on
+// high (the SRS 5.2 example). Targets are normalized and deduplicated, and errors
+// cite them by position, never by value, because URLs and header values may hold
+// secrets (FR-022). Until the engine lands in M2 a valid scan exits 2.
+
 package cli
 
 import (
@@ -13,10 +20,9 @@ import (
 )
 
 const (
-	defaultTimeout     = 10 * time.Second // FR-012
+	defaultTimeout     = 10 * time.Second
 	defaultConcurrency = 16
-	// defaultFailOn matches the fail_on example in SRS 5.2.
-	defaultFailOn = "high"
+	defaultFailOn      = "high"
 )
 
 const scanUsage = `Usage: mcpwarden scan [URL...] [flags]
@@ -26,20 +32,18 @@ Scan only servers you own or are authorized to test.
 
 Flags:`
 
-// ScanOptions is the validated configuration of one scan run.
 type ScanOptions struct {
-	Targets     []target.Target // normalized and deduplicated, in input order
-	ConfigPath  string          // MCP client config file; empty when not given
-	Format      string          // text, json or sarif
-	Output      string          // report file; empty means stdout
+	Targets     []target.Target
+	ConfigPath  string
+	Format      string
+	Output      string
 	FailOn      check.Severity
-	Timeout     time.Duration // per request
+	Timeout     time.Duration
 	Concurrency int
-	Headers     http.Header // never print values: they hold tokens (FR-022)
+	Headers     http.Header
 	Rules       check.RuleSelection
 }
 
-// scanFlags holds raw flag values before validation.
 type scanFlags struct {
 	configPath, format, output, failOn string
 	timeout                            time.Duration
@@ -47,7 +51,6 @@ type scanFlags struct {
 	headers, enable, disable           stringList
 }
 
-// runScan implements "mcpwarden scan" (FR-002, FR-003) and returns the exit code.
 func runScan(args []string, stdout, stderr io.Writer) int {
 	opts, err := ParseScanArgs(args)
 	if errors.Is(err, flag.ErrHelp) {
@@ -58,14 +61,10 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "mcpwarden scan: %v\nRun \"mcpwarden scan -h\" for usage.\n", err)
 		return ExitError
 	}
-	// ponytail: the probe and check engine land in M2; until then a valid scan cannot run.
 	fmt.Fprintf(stderr, "mcpwarden scan: scanning is not implemented yet (%d targets parsed)\n", len(opts.Targets))
 	return ExitError
 }
 
-// ParseScanArgs parses and validates the scan command's arguments (the
-// arguments after "scan"). Flags and URLs may appear in any order.
-// It returns flag.ErrHelp when -h or --help was given.
 func ParseScanArgs(args []string) (ScanOptions, error) {
 	var f scanFlags
 	urls, err := parseInterspersed(newScanFlagSet(&f), args)
@@ -77,7 +76,7 @@ func ParseScanArgs(args []string) (ScanOptions, error) {
 
 func newScanFlagSet(f *scanFlags) *flag.FlagSet {
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
-	fs.SetOutput(io.Discard) // runScan prints errors and usage itself
+	fs.SetOutput(io.Discard)
 	fs.StringVar(&f.configPath, "config", "", "scan the MCP client config file at `PATH`")
 	fs.StringVar(&f.format, "format", "text", "report `format`: text, json or sarif")
 	fs.StringVar(&f.output, "output", "", "write the report to `FILE` instead of stdout")
@@ -140,8 +139,6 @@ func (f *scanFlags) validate(rawURLs []string) (ScanOptions, error) {
 	}, nil
 }
 
-// parseTargets normalizes server URLs and drops duplicates, keeping order.
-// Errors name the argument by position rather than quoting it.
 func parseTargets(rawURLs []string) ([]target.Target, error) {
 	var targets []target.Target
 	seen := make(map[string]bool)

@@ -1,3 +1,6 @@
+// FuzzParseURL checks that any accepted URL is http(s), has a host and is already
+// normalized. Run longer with: go test -fuzz=FuzzParseURL ./internal/target
+
 package target_test
 
 import (
@@ -6,9 +9,6 @@ import (
 	"github.com/labibkamran/mcpwarden/internal/target"
 )
 
-// FuzzParseURL checks that any accepted URL is http(s), has a host, and is
-// already normalized: parsing its string form again yields the same string.
-// Run longer with: go test -fuzz=FuzzParseURL ./internal/target
 func FuzzParseURL(f *testing.F) {
 	seeds := []string{
 		"https://mcp.example.com/mcp",

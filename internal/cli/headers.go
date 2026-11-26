@@ -1,3 +1,7 @@
+// --header parsing: "Name: value" pairs become an http.Header. Names must be
+// RFC 9110 tokens and values may not contain CR, LF or NUL. Errors cite the flag
+// by position and never include the value, which usually holds a token (FR-022).
+
 package cli
 
 import (
@@ -6,9 +10,6 @@ import (
 	"strings"
 )
 
-// parseHeaders converts --header "Name: value" flags into an http.Header.
-// Errors name the flag by position and never include the value, which
-// usually holds a token (FR-022).
 func parseHeaders(raw []string) (http.Header, error) {
 	headers := http.Header{}
 	for i, line := range raw {
@@ -27,7 +28,6 @@ func parseHeaders(raw []string) (http.Header, error) {
 	return headers, nil
 }
 
-// isToken reports whether s is a valid HTTP header name (RFC 9110 token).
 func isToken(s string) bool {
 	for _, c := range []byte(s) {
 		isAlnum := c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'

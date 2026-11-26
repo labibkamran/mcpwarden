@@ -1,3 +1,7 @@
+// Rule selection (FR-018): rule IDs turned on or off, uppercased and deduplicated.
+// A rule both enabled and disabled is an error. Only the MWnnn syntax is checked
+// until the rule registry exists (M2).
+
 package check
 
 import (
@@ -6,15 +10,11 @@ import (
 	"strings"
 )
 
-// RuleSelection holds the rule IDs a user turned on or off (FR-018),
-// uppercased and without duplicates.
 type RuleSelection struct {
 	Enable  []string
 	Disable []string
 }
 
-// ParseRuleSelection validates the enabled and disabled rule IDs. IDs are
-// case-insensitive; a rule that is both enabled and disabled is an error.
 func ParseRuleSelection(enable, disable []string) (RuleSelection, error) {
 	on, err := parseRuleIDs(enable)
 	if err != nil {
@@ -46,8 +46,6 @@ func parseRuleIDs(raw []string) ([]string, error) {
 	return ids, nil
 }
 
-// isRuleID reports whether id has the MWnnn form.
-// ponytail: syntax only; check IDs against the rule registry once it exists (M2).
 func isRuleID(id string) bool {
 	if len(id) != len("MW000") || !strings.HasPrefix(id, "MW") {
 		return false

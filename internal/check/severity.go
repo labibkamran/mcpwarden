@@ -1,5 +1,7 @@
-// Package check holds the security rules (MW001–MW012) and the types they
-// share. Checks judge collected evidence and perform no network I/O (FR-015).
+// Package check holds the security rules (MW001–MW012) and the types they share.
+// Checks judge collected evidence and perform no network I/O (FR-015). Severity is
+// ordered low < medium < high < critical so thresholds such as --fail-on are plain
+// comparisons; its zero value is invalid.
 package check
 
 import (
@@ -7,11 +9,8 @@ import (
 	"strings"
 )
 
-// Severity ranks how serious a finding is. Higher values are more severe,
-// so severities compare with < and >. The zero value is not a valid severity.
 type Severity int
 
-// Severity levels, from least to most severe (Appendix A).
 const (
 	SeverityLow Severity = iota + 1
 	SeverityMedium
@@ -19,7 +18,6 @@ const (
 	SeverityCritical
 )
 
-// ParseSeverity converts a case-insensitive name such as "high" to a Severity.
 func ParseSeverity(name string) (Severity, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case "low":
@@ -35,7 +33,6 @@ func ParseSeverity(name string) (Severity, error) {
 	}
 }
 
-// String returns the lowercase name used in flags and reports.
 func (s Severity) String() string {
 	switch s {
 	case SeverityLow:

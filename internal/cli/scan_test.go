@@ -60,7 +60,7 @@ func TestParseScanArgsAllFlags(t *testing.T) {
 		t.Fatalf("ParseScanArgs error: %v", err)
 	}
 	want := cli.ScanOptions{
-		Targets:     opts.Targets, // checked separately below
+		Targets:     opts.Targets,
 		ConfigPath:  "claude_desktop_config.json",
 		Format:      "sarif",
 		Output:      "report.sarif",

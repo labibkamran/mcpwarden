@@ -64,7 +64,6 @@ func TestScanHeadersRejects(t *testing.T) {
 	}
 }
 
-// withHeaders builds scan arguments for url with one --header flag per header.
 func withHeaders(url string, headers []string) []string {
 	args := []string{url}
 	for _, h := range headers {
