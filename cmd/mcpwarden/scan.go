@@ -36,7 +36,7 @@ type scanOptions struct {
 	timeout     time.Duration
 	concurrency int
 	headers     http.Header
-	rules       ruleSelection
+	rules       check.RuleSelection
 }
 
 // scanFlags holds raw flag values before validation.
@@ -122,7 +122,7 @@ func (f *scanFlags) validate(rawURLs []string) (scanOptions, error) {
 	if err != nil {
 		return scanOptions{}, err
 	}
-	rules, err := parseRuleSelection(f.enable, f.disable)
+	rules, err := check.ParseRuleSelection(f.enable, f.disable)
 	if err != nil {
 		return scanOptions{}, err
 	}
