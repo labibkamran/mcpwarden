@@ -31,11 +31,21 @@ tests and commit bodies where it helps.
 ## Layout
 
 Follows the official Go module layout (https://go.dev/doc/modules/layout): commands in `cmd/`, all logic in
-`internal/`. Create a package only when the first code for it lands; do not add empty placeholder packages.
+`internal/`, **one folder per feature**. Create a package only when the first code for it lands; do not add empty
+placeholder packages.
+
+```
+cmd/mcpwarden/main.go     entry point only: build version + cli.Run
+internal/<feature>/       one package per feature (table below)
+  <name>.go               code
+  <name>_test.go          its tests, package <feature>_test
+test/                     added in M2: integration tests, mock MCP servers, golden files
+```
 
 | Package | Responsibility |
 |---|---|
-| `cmd/mcpwarden` | CLI: parse flags and config, call the engine, choose the exit code |
+| `cmd/mcpwarden` | Entry point only: compute the build version and call `cli.Run` |
+| `internal/cli` | Commands, flag parsing and validation, exit codes (IF-001) |
 | `internal/target` | Turn URLs and config files into `Target` values |
 | `internal/engine` | Worker pool, deadlines, rate limits, per-target pipeline |
 | `internal/probe` | HTTP prober, OAuth fetcher, MCP client; builds `Evidence` |
@@ -44,8 +54,18 @@ Follows the official Go module layout (https://go.dev/doc/modules/layout): comma
 | `internal/report` | Text, JSON and SARIF writers |
 | `cmd/mcpwarden-api`, `cmd/mcpwarden-worker` | v2 service only; do not start before v1.0 ships |
 
-`internal/check` and `internal/probe` must keep at least 80% test coverage. Every rule ships with a vulnerable and a
-secure `httptest` server.
+## Tests
+
+- **Unit tests** sit beside the code they test (`target.go` → `target_test.go`), as `go test`, coverage and GoLand
+  expect, but in the external test package (`package target_test`). They use only the exported API, so internal
+  refactors never break them. Name each test file after the source file it covers.
+- Use an internal test (`package target`) only when behavior cannot be reached through the public API, and say why
+  in a comment.
+- **Fuzz tests** for parsers live beside the parser (`fuzz_test.go`) and are added to `.github/workflows/fuzz.yml`.
+- **Integration tests, mock MCP servers and golden files** go in the top-level `test/` folder (from M2). Every rule
+  ships with a vulnerable and a secure `httptest` server there.
+- Fixed input files for a package go in `<package>/testdata/`, which the Go tool ignores when building.
+- `internal/check` and `internal/probe` must keep at least 80% test coverage (NFR-014).
 
 ## Commands
 
