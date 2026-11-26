@@ -1,6 +1,5 @@
-name: fuzz
-
 # Nightly fuzzing of parsers, 5 minutes each (SRS 13.1).
+name: fuzz
 on:
   schedule:
     - cron: "0 3 * * *"

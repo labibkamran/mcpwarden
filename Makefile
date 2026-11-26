@@ -1,3 +1,5 @@
+# make check runs everything CI runs, in the same order.
+
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 BIN     := bin/mcpwarden
@@ -6,7 +8,6 @@ GOVULNCHECK_VERSION := v1.10.0
 
 .PHONY: check build test cover lint fmt vet vuln tidy clean
 
-# check runs everything CI runs, in the same order.
 check: vet lint test vuln build
 
 build:
