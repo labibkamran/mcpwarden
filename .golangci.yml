@@ -1,0 +1,52 @@
+# golangci-lint v2. Thresholds mirror AGENTS.md section 16 (review triggers).
+# Exported identifiers need no doc comments: by house style the only comment in a
+# Go file is its header (AGENTS.md section 9). Table-driven tests may be long, and
+# redaction tests need fake credentials (gosec G101). cmd/ and internal/cli may
+# ignore fmt.Fprint errors on stdout/stderr; report writers must check every write.
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - funlen
+    - gocognit
+    - gocyclo
+    - gosec
+    - misspell
+    - nestif
+    - noctx
+    - revive
+    - unconvert
+  settings:
+    funlen:
+      lines: 100
+      statements: 60
+    gocognit:
+      min-complexity: 15
+    gocyclo:
+      min-complexity: 15
+    nestif:
+      min-complexity: 4
+  exclusions:
+    presets:
+      - comments
+    rules:
+      - path: _test\.go
+        linters: [funlen]
+      - path: _test\.go
+        linters: [gosec]
+        text: G101
+      - path: ^(cmd|internal/cli)/
+        linters: [errcheck]
+        text: "fmt\\.Fprint"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/labibkamran/mcpwarden
