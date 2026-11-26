@@ -35,8 +35,8 @@ linters:
         linters: [gosec]
         text: G101
       # A CLI cannot act on a failed write to its own stdout/stderr.
-      # Report writers in internal/ must still check every write.
-      - path: ^cmd/
+      # Report writers (internal/report) must still check every write.
+      - path: ^(cmd|internal/cli)/
         linters: [errcheck]
         text: "fmt\\.Fprint"
 

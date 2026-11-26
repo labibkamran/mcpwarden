@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"errors"
@@ -52,15 +52,15 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	opts, err := parseScanArgs(args)
 	if errors.Is(err, flag.ErrHelp) {
 		printScanUsage(stdout)
-		return exitOK
+		return ExitOK
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "mcpwarden scan: %v\nRun \"mcpwarden scan -h\" for usage.\n", err)
-		return exitError
+		return ExitError
 	}
 	// ponytail: the probe and check engine land in M2; until then a valid scan cannot run.
 	fmt.Fprintf(stderr, "mcpwarden scan: scanning is not implemented yet (%d targets parsed)\n", len(opts.targets))
-	return exitError
+	return ExitError
 }
 
 // parseScanArgs parses and validates the scan command's arguments.
