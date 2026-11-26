@@ -45,7 +45,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "help", "-h", "-help", "--help":
 		fmt.Fprintln(stdout, usage)
 		return exitOK
-	case "scan", "list-checks":
+	case "scan":
+		return runScan(args[1:], stdout, stderr)
+	case "list-checks":
 		fmt.Fprintf(stderr, "mcpwarden: %s is not implemented yet\n", args[0])
 		return exitError
 	default:

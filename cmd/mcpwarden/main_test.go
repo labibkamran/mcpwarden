@@ -18,7 +18,11 @@ func TestRun(t *testing.T) {
 		{name: "unknown command exits 2", args: []string{"bogus"}, wantCode: exitError, wantStderr: `unknown command "bogus"`},
 		{name: "version prints version", args: []string{"version"}, wantCode: exitOK, wantStdout: "mcpwarden dev"},
 		{name: "help prints usage to stdout", args: []string{"--help"}, wantCode: exitOK, wantStdout: "Commands:"},
-		{name: "scan is not implemented yet", args: []string{"scan"}, wantCode: exitError, wantStderr: "not implemented"},
+		{name: "scan without targets is a usage error", args: []string{"scan"}, wantCode: exitError, wantStderr: "nothing to scan"},
+		{name: "scan usage error points to help", args: []string{"scan", "--format", "xml", "https://a"}, wantCode: exitError, wantStderr: `Run "mcpwarden scan -h"`},
+		{name: "scan help prints flags to stdout", args: []string{"scan", "-h"}, wantCode: exitOK, wantStdout: "-fail-on severity"},
+		{name: "scan with valid flags is not implemented yet", args: []string{"scan", "https://a"}, wantCode: exitError, wantStderr: "not implemented yet (1 targets parsed)"},
+		{name: "list-checks is not implemented yet", args: []string{"list-checks"}, wantCode: exitError, wantStderr: "not implemented"},
 	}
 
 	for _, tt := range tests {
