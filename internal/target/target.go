@@ -1,6 +1,8 @@
 // Package target turns user input into scan targets. ParseURL accepts only http
 // and https (FR-005) and normalizes: scheme and host lowercased, default port and
-// fragment removed, empty path becomes "/". URLs with credentials are rejected and
+// fragment removed, empty path becomes "/". Whitespace inside the URL is rejected, because
+// net/url keeps a raw space in the query and the result would not parse back to itself
+// (RFC 3986 requires %20). URLs with credentials are rejected and
 // parse errors drop the raw input (url.Error repeats it), so secrets never reach
 // output (FR-022). Config-file targets arrive with the config parser (FR-006).
 package target
@@ -12,6 +14,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 type Target struct {
@@ -23,7 +26,11 @@ func (t Target) String() string {
 }
 
 func ParseURL(raw string) (Target, error) {
-	u, err := url.Parse(strings.TrimSpace(raw))
+	raw = strings.TrimSpace(raw)
+	if strings.IndexFunc(raw, unicode.IsSpace) >= 0 {
+		return Target{}, errors.New("invalid url: contains whitespace: percent-encode it as %20")
+	}
+	u, err := url.Parse(raw)
 	if err != nil {
 		var urlErr *url.Error
 		if errors.As(err, &urlErr) {
