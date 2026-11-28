@@ -4,7 +4,8 @@
 // enough MCP 2026-07-28 Streamable HTTP for the probes: tools/list over POST (JSON or SSE), CORS
 // preflight over OPTIONS, RFC 9728 protected resource metadata and RFC 8414 authorization server
 // metadata. AllowOrigin "*" answers preflights with a wildcard and "reflect" echoes the caller's
-// Origin. PKCEMethods nil leaves code_challenge_methods_supported out of the metadata.
+// Origin. PKCEMethods nil leaves code_challenge_methods_supported out of the metadata, and
+// IssParameter false leaves out authorization_response_iss_parameter_supported (RFC 9207).
 package mockserver
 
 import (
@@ -25,6 +26,7 @@ type Config struct {
 	AllowOrigin     string
 	PublishMetadata bool
 	PKCEMethods     []string
+	IssParameter    bool
 	SSE             bool
 }
 
@@ -34,6 +36,7 @@ func Secure() Config {
 		ValidateOrigin:  true,
 		PublishMetadata: true,
 		PKCEMethods:     []string{"S256"},
+		IssParameter:    true,
 	}
 }
 
@@ -134,6 +137,9 @@ func (s *server) handleAuthServerMetadata(w http.ResponseWriter, _ *http.Request
 	}
 	if s.cfg.PKCEMethods != nil {
 		metadata["code_challenge_methods_supported"] = s.cfg.PKCEMethods
+	}
+	if s.cfg.IssParameter {
+		metadata["authorization_response_iss_parameter_supported"] = true
 	}
 	writeJSON(w, metadata)
 }

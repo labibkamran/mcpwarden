@@ -30,6 +30,7 @@ type ResourceMetadata struct {
 type AuthServerMetadata struct {
 	Issuer                        string   `json:"issuer"`
 	CodeChallengeMethodsSupported []string `json:"code_challenge_methods_supported"`
+	IssParameterSupported         bool     `json:"authorization_response_iss_parameter_supported"`
 }
 
 var resourceMetadataParam = regexp.MustCompile(`resource_metadata="([^"]+)"`)
