@@ -15,8 +15,11 @@ import (
 )
 
 const (
-	docsURL   = "https://github.com/labibkamran/mcpwarden/blob/main/docs/rules.md#"
-	owaspAuth = "MCP07:2025 Insufficient Authentication & Authorization"
+	docsURL       = "https://github.com/labibkamran/mcpwarden/blob/main/docs/rules.md#"
+	owaspExposure = "MCP01:2025 Token Mismanagement & Secret Exposure"
+	owaspScopes   = "MCP02:2025 Privilege Escalation via Scope Creep"
+	owaspCommand  = "MCP05:2025 Command Injection & Execution"
+	owaspAuth     = "MCP07:2025 Insufficient Authentication & Authorization"
 )
 
 type Rule struct {
@@ -42,7 +45,7 @@ type Finding struct {
 }
 
 func Catalog() []Check {
-	return []Check{mw001(), mw002(), mw003(), mw004(), mw005(), mw006(), mw007()}
+	return []Check{mw001(), mw002(), mw003(), mw004(), mw005(), mw006(), mw007(), mw008()}
 }
 
 func Select(sel RuleSelection) []Check {
