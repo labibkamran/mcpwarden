@@ -37,8 +37,7 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 	case "scan":
 		return runScan(args[1:], stdout, stderr, version)
 	case "list-checks":
-		fmt.Fprintf(stderr, "mcpwarden: %s is not implemented yet\n", args[0])
-		return ExitError
+		return listChecks(stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "mcpwarden: unknown command %q\n\n%s\n", args[0], usage)
 		return ExitError
