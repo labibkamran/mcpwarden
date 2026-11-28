@@ -48,6 +48,14 @@ func fixedCheck(id string, summaries ...string) check.Check {
 	}
 }
 
+func TestCatalogIsSilentWithoutEvidence(t *testing.T) {
+	findings, errs := check.Run(check.Catalog(), &probe.Evidence{})
+
+	if len(findings) != 0 || len(errs) != 0 {
+		t.Errorf("findings = %v, errors = %v; want none for a target nothing was learned about", findings, errs)
+	}
+}
+
 func TestRunTurnsSummariesIntoFindings(t *testing.T) {
 	checks := []check.Check{fixedCheck("MW901", "a", "b"), fixedCheck("MW902"), fixedCheck("MW903", "c")}
 

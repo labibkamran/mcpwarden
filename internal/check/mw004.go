@@ -23,6 +23,9 @@ func mw004() Check {
 				"and point to it from the resource_metadata parameter of the 401's WWW-Authenticate header.",
 		},
 		Evaluate: func(ev *probe.Evidence) []string {
+			if ev.ToolsList == nil {
+				return nil
+			}
 			status := ev.ToolsList.Status
 			demandsAuth := status == http.StatusUnauthorized || status == http.StatusForbidden
 			if !demandsAuth || !ev.ResourceMetadataMissing {
