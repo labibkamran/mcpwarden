@@ -5,7 +5,7 @@ Fast, offline security scanner for MCP servers — checks 2026-07-28 auth confor
 
 ## Status
 
-Milestone 2 of 5: `scan` checks remote MCP servers against rules [MW001–MW005](docs/rules.md) and prints a text report with a grade from A to F. Scanning MCP client config files (`--config`) arrives in milestone 3, and JSON and SARIF reports in milestone 4.
+Milestone 3 of 5: `scan` checks remote MCP servers and MCP client config files (Claude Desktop, Cursor, Claude Code, VS Code) against rules [MW001–MW012](docs/rules.md) and prints a text report with a grade from A to F. JSON and SARIF reports arrive in milestone 4.
 
 ## Example
 
@@ -22,7 +22,14 @@ https://mcp.example.com/mcp
 1 target: 1 scanned, 0 unreachable · 1 finding (1 critical)
 ```
 
-`mcpwarden list-checks` prints every rule; [docs/rules.md](docs/rules.md) explains each one and how to fix it.
+Scan the servers in a client config the same way. Commands in it are read as text and never run; remote entries are probed like URL arguments:
+
+```sh
+mcpwarden scan --config ~/Library/Application\ Support/Claude/claude_desktop_config.json
+mcpwarden scan --config .vscode/mcp.json https://mcp.example.com/mcp
+```
+
+`mcpwarden list-checks` prints every rule; [docs/rules.md](docs/rules.md) explains each one and how to fix it. MW011 and MW012 need a token in `--header` and are opt-in: turn them on with `--enable`.
 
 ## What mcpwarden sends
 
@@ -43,12 +50,12 @@ mcpwarden scan [URL...] [--config PATH]
                [--fail-on low|medium|high|critical]   # default high
                [--timeout 10s] [--concurrency 16]
                [--header "Authorization: Bearer $TOKEN"]
-               [--enable MW002] [--disable MW003]
+               [--enable MW011] [--disable MW003]
 mcpwarden list-checks
 mcpwarden version
 ```
 
-Flags and URLs can come in any order; `--header`, `--enable` and `--disable` can repeat. Only `http` and `https` URLs are accepted, and URLs with embedded credentials are rejected: pass credentials with `--header`, whose values never appear in output.
+Flags and URLs can come in any order; `--header`, `--enable` and `--disable` can repeat. `--config` reads `mcpServers` (Claude Desktop, Cursor, Claude Code) or `servers` (VS Code, comments allowed) from a file up to 1 MB. Only `http` and `https` URLs are accepted, and URLs with embedded credentials are rejected: pass credentials with `--header`, whose values never appear in output.
 
 | Exit code | Meaning |
 |---|---|
