@@ -8,7 +8,8 @@
 // IssParameter false leaves out authorization_response_iss_parameter_supported (RFC 9207).
 // The server lists a read-only and a destructive tool, or only the read-only one with
 // ReadOnlyTools. AcceptAnyToken takes every bearer token instead of only Token, as a server that
-// skips audience validation does.
+// skips audience validation does. Scopes is the scopes_supported list of the protected resource
+// metadata.
 package mockserver
 
 import (
@@ -31,6 +32,7 @@ type Config struct {
 	AllowOrigin     string
 	PublishMetadata bool
 	PKCEMethods     []string
+	Scopes          []string
 	IssParameter    bool
 	ReadOnlyTools   bool
 	SSE             bool
@@ -42,6 +44,7 @@ func Secure() Config {
 		ValidateOrigin:  true,
 		PublishMetadata: true,
 		PKCEMethods:     []string{"S256"},
+		Scopes:          []string{"files:read", "files:write"},
 		IssParameter:    true,
 	}
 }
@@ -132,6 +135,7 @@ func (s *server) handleResourceMetadata(w http.ResponseWriter, _ *http.Request) 
 	writeJSON(w, map[string]any{
 		"resource":              s.baseURL + Path,
 		"authorization_servers": []string{s.baseURL},
+		"scopes_supported":      s.cfg.Scopes,
 	})
 }
 

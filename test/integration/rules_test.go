@@ -81,6 +81,8 @@ func TestRulesAgainstMockServers(t *testing.T) {
 		{name: "MW004 no protected resource metadata", cfg: secureWith(func(c *mockserver.Config) { c.PublishMetadata = false }), want: []string{"MW004"}},
 		{name: "MW011 token for another audience is rejected", cfg: mockserver.Secure(), headers: foreignJWT},
 		{name: "MW011 token for another audience is accepted", cfg: secureWith(func(c *mockserver.Config) { c.AcceptAnyToken = true }), headers: foreignJWT, want: []string{"MW011"}},
+		{name: "MW012 one scope for every tool", cfg: secureWith(func(c *mockserver.Config) { c.Scopes = []string{"files"} }), headers: token, want: []string{"MW012"}},
+		{name: "MW012 is not judged without a token", cfg: secureWith(func(c *mockserver.Config) { c.Scopes = []string{"files"} })},
 		{name: "MW005 PKCE methods absent", cfg: secureWith(func(c *mockserver.Config) { c.PKCEMethods = nil }), want: []string{"MW005"}},
 		{name: "MW006 no iss parameter", cfg: secureWith(func(c *mockserver.Config) { c.IssParameter = false }), want: []string{"MW006"}},
 		{name: "MW005 plain PKCE only", cfg: secureWith(func(c *mockserver.Config) { c.PKCEMethods = []string{"plain"} }), want: []string{"MW005"}},

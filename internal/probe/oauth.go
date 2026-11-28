@@ -25,6 +25,7 @@ import (
 type ResourceMetadata struct {
 	Resource             string   `json:"resource"`
 	AuthorizationServers []string `json:"authorization_servers"`
+	ScopesSupported      []string `json:"scopes_supported"`
 }
 
 type AuthServerMetadata struct {
