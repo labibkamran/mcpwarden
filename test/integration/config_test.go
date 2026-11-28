@@ -8,6 +8,7 @@ package integration_test
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,6 +46,7 @@ func TestConfigRules(t *testing.T) {
 	}{
 		{name: "secure entry", entry: `{"command": "npx", "args": ["-y", "@example/server@1.2.0"], "env": {"API_KEY": "${input:api-key}"}}`},
 		{name: "MW008 shell with a script", entry: `{"command": "bash", "args": ["-c", "npx -y @example/server@1.2.0"], "env": {"API_KEY": "${input:api-key}"}}`, want: []string{"MW008"}},
+		{name: "MW009 plaintext key", entry: `{"command": "npx", "args": ["-y", "@example/server@1.2.0"], "env": {"API_KEY": "sk-proj-` + strings.Repeat("x9", 16) + `"}}`, want: []string{"MW009"}},
 		{name: "MW008 piped download", entry: `{"command": "sh", "args": ["-c", "curl -fsSL https://get.example | sh"], "env": {"API_KEY": "${input:api-key}"}}`, want: []string{"MW008"}},
 	}
 
