@@ -22,11 +22,13 @@ type Options struct {
 }
 
 type Evidence struct {
-	Target      target.Target
-	ToolsList   *Exchange
-	Tools       []Tool
-	ToolsListed bool
-	ProbeErrors []error
+	Target        target.Target
+	ToolsList     *Exchange
+	Tools         []Tool
+	ToolsListed   bool
+	ForeignOrigin *Exchange
+	Preflight     *Exchange
+	ProbeErrors   []error
 }
 
 type prober struct {
@@ -45,7 +47,18 @@ func Collect(ctx context.Context, t target.Target, opts Options) (*Evidence, err
 	}
 	ev := &Evidence{Target: t, ToolsList: toolsList}
 	ev.Tools, ev.ToolsListed = DecodeToolsList(toolsList.Header.Get("Content-Type"), toolsList.Body)
+
+	ev.ForeignOrigin, err = p.foreignOriginToolsList(ctx, endpoint)
+	ev.note("foreign-origin tools/list", err)
+	ev.Preflight, err = p.preflight(ctx, endpoint)
+	ev.note("CORS preflight", err)
 	return ev, nil
+}
+
+func (ev *Evidence) note(probeName string, err error) {
+	if err != nil {
+		ev.ProbeErrors = append(ev.ProbeErrors, fmt.Errorf("%s: %w", probeName, err))
+	}
 }
 
 func (p *prober) unauthenticatedToolsList(ctx context.Context, endpoint string) (*Exchange, error) {

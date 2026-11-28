@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -60,11 +61,31 @@ func TestCollectToolsList(t *testing.T) {
 	}
 }
 
+type recorder struct {
+	mu   sync.Mutex
+	seen []*http.Request
+}
+
+func (rec *recorder) ServeHTTP(_ http.ResponseWriter, r *http.Request) {
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	rec.seen = append(rec.seen, &http.Request{Method: r.Method, Header: r.Header.Clone()})
+}
+
+func (rec *recorder) find(method, origin string) http.Header {
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	for _, r := range rec.seen {
+		if r.Method == method && r.Header.Get("Origin") == origin {
+			return r.Header
+		}
+	}
+	return http.Header{}
+}
+
 func TestCollectSendsMCPHeaders(t *testing.T) {
-	var got http.Header
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		got = r.Header.Clone()
-	}))
+	rec := &recorder{}
+	srv := httptest.NewServer(rec)
 	defer srv.Close()
 
 	_, err := collect(t, srv.URL, probe.Options{UserAgent: "mcpwarden/test"})
@@ -72,6 +93,7 @@ func TestCollectSendsMCPHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Collect error: %v", err)
 	}
+	got := rec.find(http.MethodPost, "")
 	want := map[string]string{
 		"Mcp-Protocol-Version": probe.ProtocolVersion,
 		"Mcp-Method":           "tools/list",
