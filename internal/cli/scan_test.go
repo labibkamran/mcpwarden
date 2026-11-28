@@ -37,6 +37,7 @@ func runCLI(args ...string) (code int, stdout, stderr string) {
 func TestScanExitCodes(t *testing.T) {
 	open := mockserver.Secure()
 	open.RequireAuth = false
+	open.ReadOnlyTools = true
 	wildcard := mockserver.Secure()
 	wildcard.AllowOrigin = "*"
 	secureURL, openURL, wildcardURL := serve(t, mockserver.Secure()), serve(t, open), serve(t, wildcard)

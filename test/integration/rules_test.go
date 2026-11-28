@@ -62,8 +62,9 @@ func TestRulesAgainstMockServers(t *testing.T) {
 	}{
 		{name: "secure server without a token", cfg: mockserver.Secure()},
 		{name: "secure server with a token", cfg: mockserver.Secure(), headers: token},
-		{name: "MW001 open server", cfg: secureWith(func(c *mockserver.Config) { c.RequireAuth = false }), want: []string{"MW001"}},
-		{name: "MW001 open server over SSE", cfg: secureWith(func(c *mockserver.Config) { c.RequireAuth = false; c.SSE = true }), want: []string{"MW001"}},
+		{name: "MW001 open read-only server", cfg: secureWith(func(c *mockserver.Config) { c.RequireAuth = false; c.ReadOnlyTools = true }), want: []string{"MW001"}},
+		{name: "MW001 open read-only server over SSE", cfg: secureWith(func(c *mockserver.Config) { c.RequireAuth = false; c.ReadOnlyTools = true; c.SSE = true }), want: []string{"MW001"}},
+		{name: "MW007 open server with a destructive tool", cfg: secureWith(func(c *mockserver.Config) { c.RequireAuth = false }), want: []string{"MW001", "MW007"}},
 		{name: "MW002 origin not validated", cfg: secureWith(func(c *mockserver.Config) { c.ValidateOrigin = false }), headers: token, want: []string{"MW002"}},
 		{name: "MW002 needs a token to get past auth", cfg: secureWith(func(c *mockserver.Config) { c.ValidateOrigin = false })},
 		{name: "MW003 wildcard CORS", cfg: secureWith(func(c *mockserver.Config) { c.AllowOrigin = "*" }), want: []string{"MW003"}},

@@ -46,6 +46,7 @@ func describe(results []engine.Result) []string {
 func TestRunKeepsOrderAndReportsUnreachable(t *testing.T) {
 	open := mockserver.Secure()
 	open.RequireAuth = false
+	open.ReadOnlyTools = true
 	vulnerable := mockserver.New(open)
 	defer vulnerable.Close()
 	secure := mockserver.New(mockserver.Secure())

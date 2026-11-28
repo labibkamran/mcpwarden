@@ -42,7 +42,7 @@ type Finding struct {
 }
 
 func Catalog() []Check {
-	return []Check{mw001(), mw002(), mw003(), mw004(), mw005(), mw006()}
+	return []Check{mw001(), mw002(), mw003(), mw004(), mw005(), mw006(), mw007()}
 }
 
 func Select(sel RuleSelection) []Check {

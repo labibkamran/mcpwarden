@@ -6,6 +6,8 @@
 // metadata. AllowOrigin "*" answers preflights with a wildcard and "reflect" echoes the caller's
 // Origin. PKCEMethods nil leaves code_challenge_methods_supported out of the metadata, and
 // IssParameter false leaves out authorization_response_iss_parameter_supported (RFC 9207).
+// The server lists a read-only and a destructive tool, or only the read-only one with
+// ReadOnlyTools.
 package mockserver
 
 import (
@@ -27,6 +29,7 @@ type Config struct {
 	PublishMetadata bool
 	PKCEMethods     []string
 	IssParameter    bool
+	ReadOnlyTools   bool
 	SSE             bool
 }
 
@@ -87,14 +90,11 @@ func (s *server) challenge(w http.ResponseWriter) {
 }
 
 func (s *server) writeTools(w http.ResponseWriter) {
-	body, _ := json.Marshal(map[string]any{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"result": map[string]any{"tools": []map[string]any{
-			{"name": "search_files", "annotations": map[string]any{"readOnlyHint": true}},
-			{"name": "delete_file", "annotations": map[string]any{"destructiveHint": true}},
-		}},
-	})
+	tools := []map[string]any{{"name": "search_files", "annotations": map[string]any{"readOnlyHint": true}}}
+	if !s.cfg.ReadOnlyTools {
+		tools = append(tools, map[string]any{"name": "delete_file", "annotations": map[string]any{"destructiveHint": true}})
+	}
+	body, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "result": map[string]any{"tools": tools}})
 	if s.cfg.SSE {
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = w.Write(append(append([]byte("event: message\ndata: "), body...), "\n\n"...))
