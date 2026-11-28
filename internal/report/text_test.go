@@ -20,6 +20,13 @@ func mustTarget(t *testing.T, raw string) target.Target {
 	return tgt
 }
 
+var plainHTTP = check.Rule{
+	ID:          "MW010",
+	Title:       "Plain HTTP endpoint",
+	Severity:    check.SeverityHigh,
+	Remediation: "Serve the endpoint over HTTPS.",
+}
+
 func sampleResults(t *testing.T) []engine.Result {
 	rule := check.Rule{
 		ID:          "MW001",
@@ -36,9 +43,10 @@ func sampleResults(t *testing.T) []engine.Result {
 			Notes:    []error{errors.New("CORS preflight: connection reset")},
 		},
 		{
-			Target: mustTarget(t, "https://down.example/mcp"),
-			Status: engine.StatusUnreachable,
-			Err:    errors.New("tools/list: connection refused"),
+			Target:   mustTarget(t, "http://down.example/mcp"),
+			Status:   engine.StatusUnreachable,
+			Err:      errors.New("tools/list: connection refused"),
+			Findings: []check.Finding{{Rule: plainHTTP, Evidence: "the url uses http:// on a non-local host"}},
 		},
 		{
 			Target: mustTarget(t, "https://site.example/"),
@@ -71,8 +79,13 @@ func TestText(t *testing.T) {
 
   Note: CORS preflight: connection reset
 
-https://down.example/mcp
+http://down.example/mcp
   Unreachable: tools/list: connection refused
+
+  HIGH      MW010  Plain HTTP endpoint
+            the url uses http:// on a non-local host
+            Fix:  Serve the endpoint over HTTPS.
+            Docs: https://github.com/labibkamran/mcpwarden/blob/main/docs/rules.md#mw010
 
 https://site.example/
   Not an MCP endpoint: tools/list got HTTP 404 (text/html) instead of an MCP response
@@ -80,7 +93,7 @@ https://site.example/
 https://safe.example/mcp
   Grade A · 0 findings
 
-4 targets: 2 scanned, 1 unreachable, 1 not MCP · 1 finding (1 critical)
+4 targets: 2 scanned, 1 unreachable, 1 not MCP · 2 findings (1 critical, 1 high)
 `
 	if out.String() != want {
 		t.Errorf("report =\n%s\nwant\n%s", out.String(), want)
