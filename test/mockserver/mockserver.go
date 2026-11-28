@@ -7,13 +7,15 @@
 // Origin. PKCEMethods nil leaves code_challenge_methods_supported out of the metadata, and
 // IssParameter false leaves out authorization_response_iss_parameter_supported (RFC 9207).
 // The server lists a read-only and a destructive tool, or only the read-only one with
-// ReadOnlyTools.
+// ReadOnlyTools. AcceptAnyToken takes every bearer token instead of only Token, as a server that
+// skips audience validation does.
 package mockserver
 
 import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 )
 
 const (
@@ -24,6 +26,7 @@ const (
 
 type Config struct {
 	RequireAuth     bool
+	AcceptAnyToken  bool
 	ValidateOrigin  bool
 	AllowOrigin     string
 	PublishMetadata bool
@@ -65,7 +68,7 @@ func (s *server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden origin", http.StatusForbidden)
 		return
 	}
-	if s.cfg.RequireAuth && r.Header.Get("Authorization") != "Bearer "+Token {
+	if s.cfg.RequireAuth && !s.accepts(r.Header.Get("Authorization")) {
 		s.challenge(w)
 		return
 	}
@@ -74,6 +77,13 @@ func (s *server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeTools(w)
+}
+
+func (s *server) accepts(authorization string) bool {
+	if s.cfg.AcceptAnyToken {
+		return strings.HasPrefix(authorization, "Bearer ")
+	}
+	return authorization == "Bearer "+Token
 }
 
 func isTrustedOrigin(origin string) bool {

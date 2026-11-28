@@ -2,7 +2,8 @@
 // FR-017). A Check pairs a Rule's metadata with a pure Evaluate function: evidence in, one summary
 // per finding out, no I/O. Catalog lists every rule; adding one means a new file, its test and a
 // line in Catalog, with no engine change (NFR-014). Run recovers a check that panics, reports it
-// as an error and carries on with the others (NFR-012). OWASP labels refer to the OWASP MCP Top 10
+// as an error and carries on with the others (NFR-012). Select runs every rule except disabled ones
+// and OptIn rules that were not enabled (FR-018). OWASP labels refer to the OWASP MCP Top 10
 // (2025, beta); DocURL points at the rule's section in docs/rules.md (NFR-013).
 package check
 
@@ -28,6 +29,7 @@ type Rule struct {
 	Severity    Severity
 	OWASP       string
 	Remediation string
+	OptIn       bool
 }
 
 func (r Rule) DocURL() string {
@@ -45,13 +47,14 @@ type Finding struct {
 }
 
 func Catalog() []Check {
-	return []Check{mw001(), mw002(), mw003(), mw004(), mw005(), mw006(), mw007(), mw008(), mw009(), mw010()}
+	return []Check{mw001(), mw002(), mw003(), mw004(), mw005(), mw006(), mw007(), mw008(), mw009(), mw010(), mw011()}
 }
 
 func Select(sel RuleSelection) []Check {
 	var checks []Check
 	for _, c := range Catalog() {
-		if !slices.Contains(sel.Disable, c.ID) {
+		enabled := !c.OptIn || slices.Contains(sel.Enable, c.ID)
+		if enabled && !slices.Contains(sel.Disable, c.ID) {
 			checks = append(checks, c)
 		}
 	}

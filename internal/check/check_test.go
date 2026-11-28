@@ -56,6 +56,32 @@ func TestCatalogIsSilentWithoutEvidence(t *testing.T) {
 	}
 }
 
+func TestSelect(t *testing.T) {
+	tests := []struct {
+		name        string
+		sel         check.RuleSelection
+		wantMW003   bool
+		wantOptedIn bool
+	}{
+		{name: "defaults leave opt-in rules out", sel: check.RuleSelection{}, wantMW003: true},
+		{name: "enable turns an opt-in rule on", sel: check.RuleSelection{Enable: []string{"MW011"}}, wantMW003: true, wantOptedIn: true},
+		{name: "disable turns a rule off", sel: check.RuleSelection{Disable: []string{"MW003"}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ids := map[string]bool{}
+			for _, c := range check.Select(tt.sel) {
+				ids[c.ID] = true
+			}
+
+			if ids["MW003"] != tt.wantMW003 || ids["MW011"] != tt.wantOptedIn {
+				t.Errorf("selected MW003 %v, MW011 %v; want %v, %v", ids["MW003"], ids["MW011"], tt.wantMW003, tt.wantOptedIn)
+			}
+		})
+	}
+}
+
 func TestRunTurnsSummariesIntoFindings(t *testing.T) {
 	checks := []check.Check{fixedCheck("MW901", "a", "b"), fixedCheck("MW902"), fixedCheck("MW903", "c")}
 

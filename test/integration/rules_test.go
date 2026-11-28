@@ -7,6 +7,7 @@ package integration_test
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"slices"
 	"testing"
@@ -19,7 +20,15 @@ import (
 	"github.com/labibkamran/mcpwarden/test/mockserver"
 )
 
-var token = http.Header{"Authorization": {"Bearer " + mockserver.Token}}
+var (
+	token         = http.Header{"Authorization": {"Bearer " + mockserver.Token}}
+	foreignJWT    = http.Header{"Authorization": {"Bearer " + jwtFor("https://other.example/mcp")}}
+	encodeSegment = base64.RawURLEncoding.EncodeToString
+)
+
+func jwtFor(audience string) string {
+	return encodeSegment([]byte(`{"alg":"none"}`)) + "." + encodeSegment([]byte(`{"aud":"`+audience+`"}`)) + ".sig"
+}
 
 func secureWith(change func(*mockserver.Config)) mockserver.Config {
 	cfg := mockserver.Secure()
@@ -70,6 +79,8 @@ func TestRulesAgainstMockServers(t *testing.T) {
 		{name: "MW003 wildcard CORS", cfg: secureWith(func(c *mockserver.Config) { c.AllowOrigin = "*" }), want: []string{"MW003"}},
 		{name: "MW003 reflected origin", cfg: secureWith(func(c *mockserver.Config) { c.AllowOrigin = "reflect" }), want: []string{"MW003"}},
 		{name: "MW004 no protected resource metadata", cfg: secureWith(func(c *mockserver.Config) { c.PublishMetadata = false }), want: []string{"MW004"}},
+		{name: "MW011 token for another audience is rejected", cfg: mockserver.Secure(), headers: foreignJWT},
+		{name: "MW011 token for another audience is accepted", cfg: secureWith(func(c *mockserver.Config) { c.AcceptAnyToken = true }), headers: foreignJWT, want: []string{"MW011"}},
 		{name: "MW005 PKCE methods absent", cfg: secureWith(func(c *mockserver.Config) { c.PKCEMethods = nil }), want: []string{"MW005"}},
 		{name: "MW006 no iss parameter", cfg: secureWith(func(c *mockserver.Config) { c.IssParameter = false }), want: []string{"MW006"}},
 		{name: "MW005 plain PKCE only", cfg: secureWith(func(c *mockserver.Config) { c.PKCEMethods = []string{"plain"} }), want: []string{"MW005"}},
