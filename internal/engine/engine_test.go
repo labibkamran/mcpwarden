@@ -46,6 +46,7 @@ func describe(results []engine.Result) []string {
 func TestRunKeepsOrderAndReportsUnreachable(t *testing.T) {
 	open := mockserver.Secure()
 	open.RequireAuth = false
+	open.ReadOnlyTools = true
 	vulnerable := mockserver.New(open)
 	defer vulnerable.Close()
 	secure := mockserver.New(mockserver.Secure())
@@ -120,5 +121,49 @@ func TestRunRespectsConcurrency(t *testing.T) {
 
 	if got := inFlight.max(); got != 2 {
 		t.Errorf("peak concurrent scans = %d, want exactly 2", got)
+	}
+}
+
+func configCheck() check.Check {
+	return check.Check{
+		Rule: check.Rule{ID: "MW901", Severity: check.SeverityHigh},
+		Evaluate: func(ev *probe.Evidence) []string {
+			if ev.Target.Server == nil {
+				return nil
+			}
+			return []string{"config entry " + ev.Target.Server.Name}
+		},
+	}
+}
+
+func TestRunChecksConfigTargetsWithoutProbing(t *testing.T) {
+	gone := httptest.NewServer(http.NotFoundHandler())
+	goneURL := gone.URL
+	gone.Close()
+	config := `{"mcpServers": {
+		"a-stdio": {"command": "npx"},
+		"b-variable": {"url": "${env:HOST}/mcp"},
+		"c-down": {"url": "` + goneURL + `/mcp"}
+	}}`
+	targets, err := target.ParseConfig("cfg.json", []byte(config))
+	if err != nil {
+		t.Fatalf("ParseConfig: %v", err)
+	}
+	opts := options(2)
+	opts.Checks = []check.Check{configCheck()}
+
+	results := engine.Run(context.Background(), targets, opts)
+
+	want := []string{
+		`scanned grade="C" findings=1 err=false`,
+		`scanned grade="C" findings=1 err=false`,
+		`unreachable grade="" findings=1 err=true`,
+	}
+	if got := describe(results); !slices.Equal(got, want) {
+		t.Errorf("results =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if len(results[0].Notes) != 0 || len(results[1].Notes) != 1 || !strings.Contains(results[1].Notes[0].Error(), "remote probes skipped") {
+		t.Errorf("notes = %v and %v; want none for the command and a skipped-probes note for the variable url",
+			results[0].Notes, results[1].Notes)
 	}
 }

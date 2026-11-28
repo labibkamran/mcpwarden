@@ -4,13 +4,19 @@
 // enough MCP 2026-07-28 Streamable HTTP for the probes: tools/list over POST (JSON or SSE), CORS
 // preflight over OPTIONS, RFC 9728 protected resource metadata and RFC 8414 authorization server
 // metadata. AllowOrigin "*" answers preflights with a wildcard and "reflect" echoes the caller's
-// Origin. PKCEMethods nil leaves code_challenge_methods_supported out of the metadata.
+// Origin. PKCEMethods nil leaves code_challenge_methods_supported out of the metadata, and
+// IssParameter false leaves out authorization_response_iss_parameter_supported (RFC 9207).
+// The server lists a read-only and a destructive tool, or only the read-only one with
+// ReadOnlyTools. AcceptAnyToken takes every bearer token instead of only Token, as a server that
+// skips audience validation does. Scopes is the scopes_supported list of the protected resource
+// metadata.
 package mockserver
 
 import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 )
 
 const (
@@ -21,10 +27,14 @@ const (
 
 type Config struct {
 	RequireAuth     bool
+	AcceptAnyToken  bool
 	ValidateOrigin  bool
 	AllowOrigin     string
 	PublishMetadata bool
 	PKCEMethods     []string
+	Scopes          []string
+	IssParameter    bool
+	ReadOnlyTools   bool
 	SSE             bool
 }
 
@@ -34,6 +44,8 @@ func Secure() Config {
 		ValidateOrigin:  true,
 		PublishMetadata: true,
 		PKCEMethods:     []string{"S256"},
+		Scopes:          []string{"files:read", "files:write"},
+		IssParameter:    true,
 	}
 }
 
@@ -59,7 +71,7 @@ func (s *server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden origin", http.StatusForbidden)
 		return
 	}
-	if s.cfg.RequireAuth && r.Header.Get("Authorization") != "Bearer "+Token {
+	if s.cfg.RequireAuth && !s.accepts(r.Header.Get("Authorization")) {
 		s.challenge(w)
 		return
 	}
@@ -68,6 +80,13 @@ func (s *server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeTools(w)
+}
+
+func (s *server) accepts(authorization string) bool {
+	if s.cfg.AcceptAnyToken {
+		return strings.HasPrefix(authorization, "Bearer ")
+	}
+	return authorization == "Bearer "+Token
 }
 
 func isTrustedOrigin(origin string) bool {
@@ -84,14 +103,11 @@ func (s *server) challenge(w http.ResponseWriter) {
 }
 
 func (s *server) writeTools(w http.ResponseWriter) {
-	body, _ := json.Marshal(map[string]any{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"result": map[string]any{"tools": []map[string]any{
-			{"name": "search_files", "annotations": map[string]any{"readOnlyHint": true}},
-			{"name": "delete_file", "annotations": map[string]any{"destructiveHint": true}},
-		}},
-	})
+	tools := []map[string]any{{"name": "search_files", "annotations": map[string]any{"readOnlyHint": true}}}
+	if !s.cfg.ReadOnlyTools {
+		tools = append(tools, map[string]any{"name": "delete_file", "annotations": map[string]any{"destructiveHint": true}})
+	}
+	body, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "result": map[string]any{"tools": tools}})
 	if s.cfg.SSE {
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = w.Write(append(append([]byte("event: message\ndata: "), body...), "\n\n"...))
@@ -119,6 +135,7 @@ func (s *server) handleResourceMetadata(w http.ResponseWriter, _ *http.Request) 
 	writeJSON(w, map[string]any{
 		"resource":              s.baseURL + Path,
 		"authorization_servers": []string{s.baseURL},
+		"scopes_supported":      s.cfg.Scopes,
 	})
 }
 
@@ -134,6 +151,9 @@ func (s *server) handleAuthServerMetadata(w http.ResponseWriter, _ *http.Request
 	}
 	if s.cfg.PKCEMethods != nil {
 		metadata["code_challenge_methods_supported"] = s.cfg.PKCEMethods
+	}
+	if s.cfg.IssParameter {
+		metadata["authorization_response_iss_parameter_supported"] = true
 	}
 	writeJSON(w, metadata)
 }

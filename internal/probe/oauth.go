@@ -25,11 +25,13 @@ import (
 type ResourceMetadata struct {
 	Resource             string   `json:"resource"`
 	AuthorizationServers []string `json:"authorization_servers"`
+	ScopesSupported      []string `json:"scopes_supported"`
 }
 
 type AuthServerMetadata struct {
 	Issuer                        string   `json:"issuer"`
 	CodeChallengeMethodsSupported []string `json:"code_challenge_methods_supported"`
+	IssParameterSupported         bool     `json:"authorization_response_iss_parameter_supported"`
 }
 
 var resourceMetadataParam = regexp.MustCompile(`resource_metadata="([^"]+)"`)

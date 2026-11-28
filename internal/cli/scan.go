@@ -2,9 +2,9 @@
 // selected rules and write the report to stdout or --output. Exit codes: 1 when any finding is at
 // or above --fail-on; otherwise 2 when a target was unreachable or is not an MCP endpoint, because
 // its result is missing; otherwise 0. Usage errors exit 2 with a pointer to -h (FR-004), and
-// Ctrl-C cancels the scan. --config targets (milestone 3) and json or sarif output (milestone 4)
-// are refused until they exist. The report file gets mode 0600 because it lists the target's
-// weaknesses.
+// Ctrl-C cancels the scan. Servers from --config are scanned after the URL arguments. JSON and
+// SARIF output (milestone 4) are refused until they exist. The report file gets mode 0600 because
+// it lists the target's weaknesses.
 
 package cli
 
@@ -23,6 +23,7 @@ import (
 	"github.com/labibkamran/mcpwarden/internal/probe"
 	"github.com/labibkamran/mcpwarden/internal/report"
 	"github.com/labibkamran/mcpwarden/internal/score"
+	"github.com/labibkamran/mcpwarden/internal/target"
 )
 
 const projectURL = "https://github.com/labibkamran/mcpwarden"
@@ -36,6 +37,10 @@ func runScan(args []string, stdout, stderr io.Writer, version string) int {
 	if err == nil {
 		err = checkSupported(opts)
 	}
+	var targets []target.Target
+	if err == nil {
+		targets, err = scanTargets(opts)
+	}
 	if err != nil {
 		fmt.Fprintf(stderr, "mcpwarden scan: %v\nRun \"mcpwarden scan -h\" for usage.\n", err)
 		return ExitError
@@ -43,7 +48,7 @@ func runScan(args []string, stdout, stderr io.Writer, version string) int {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	results := engine.Run(ctx, opts.Targets, engineOptions(opts, version))
+	results := engine.Run(ctx, targets, engineOptions(opts, version))
 	if err := writeReport(opts.Output, stdout, results); err != nil {
 		fmt.Fprintf(stderr, "mcpwarden scan: write report: %v\n", err)
 		return ExitError
@@ -52,9 +57,6 @@ func runScan(args []string, stdout, stderr io.Writer, version string) int {
 }
 
 func checkSupported(opts ScanOptions) error {
-	if opts.ConfigPath != "" {
-		return errors.New("--config: scanning MCP client config files arrives in milestone 3")
-	}
 	if opts.Format != "text" {
 		return fmt.Errorf("--format %s: json and sarif reports arrive in milestone 4", opts.Format)
 	}

@@ -42,6 +42,22 @@ func TestDecodeToolsList(t *testing.T) {
 	}
 }
 
+func TestDecodeToolsListAnnotations(t *testing.T) {
+	body := `{"result":{"tools":[
+		{"name":"plain"},
+		{"name":"reader","annotations":{"readOnlyHint":true}},
+		{"name":"eraser","annotations":{"readOnlyHint":false,"destructiveHint":true}}
+	]}}`
+
+	tools, _ := probe.DecodeToolsList("application/json", []byte(body))
+
+	plain, reader, eraser := tools[0].Annotations, tools[1].Annotations, tools[2].Annotations
+	if plain != nil || *reader.ReadOnlyHint != true || reader.DestructiveHint != nil ||
+		*eraser.ReadOnlyHint != false || *eraser.DestructiveHint != true {
+		t.Errorf("annotations = %+v, %+v, %+v; want nil, read-only, destructive", plain, reader, eraser)
+	}
+}
+
 func toolNames(tools []probe.Tool) []string {
 	var names []string
 	for _, tool := range tools {

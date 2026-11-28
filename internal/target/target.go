@@ -4,7 +4,8 @@
 // net/url keeps a raw space in the query and the result would not parse back to itself
 // (RFC 3986 requires %20). URLs with credentials are rejected and
 // parse errors drop the raw input (url.Error repeats it), so secrets never reach
-// output (FR-022). Config-file targets arrive with the config parser (FR-006).
+// output (FR-022). A target from a config file also carries its Server entry (config.go); its URL
+// is nil when the entry runs a local command or its url cannot be parsed.
 package target
 
 import (
@@ -18,11 +19,19 @@ import (
 )
 
 type Target struct {
-	URL *url.URL
+	URL    *url.URL
+	Server *Server
 }
 
 func (t Target) String() string {
-	return t.URL.String()
+	switch {
+	case t.Server == nil:
+		return t.URL.String()
+	case t.URL != nil:
+		return fmt.Sprintf("%s: %s (%s)", t.Server.ConfigPath, t.Server.Name, t.URL)
+	default:
+		return fmt.Sprintf("%s: %s", t.Server.ConfigPath, t.Server.Name)
+	}
 }
 
 func ParseURL(raw string) (Target, error) {

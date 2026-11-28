@@ -5,7 +5,7 @@
 // is sent, because nothing at the URL can be judged. Later probes that fail leave their field nil
 // and add to ProbeErrors, because checks treat missing evidence as "cannot tell", never as a
 // finding. ResourceMetadataMissing is true only when every metadata location answered and none
-// held a document.
+// held a document. With --header values the tools are also listed as the user's client (auth.go).
 package probe
 
 import (
@@ -32,6 +32,11 @@ type Evidence struct {
 	SpeaksMCP     bool
 	ForeignOrigin *Exchange
 	Preflight     *Exchange
+
+	AuthToolsList   *Exchange
+	AuthTools       []Tool
+	AuthToolsListed bool
+	TokenAudience   []string
 
 	ResourceMetadata        *ResourceMetadata
 	ResourceMetadataMissing bool
@@ -64,6 +69,9 @@ func Collect(ctx context.Context, t target.Target, opts Options) (*Evidence, err
 	ev.note("foreign-origin tools/list", err)
 	ev.Preflight, err = p.preflight(ctx, endpoint)
 	ev.note("CORS preflight", err)
+	if len(p.opts.Headers) > 0 {
+		p.collectAuthenticated(ctx, endpoint, ev)
+	}
 
 	ev.ResourceMetadata, err = p.resourceMetadata(ctx, t.URL, toolsList)
 	ev.note("protected resource metadata", err)
@@ -71,6 +79,16 @@ func Collect(ctx context.Context, t target.Target, opts Options) (*Evidence, err
 	ev.AuthServerMetadata, err = p.authServerMetadata(ctx, ev.ResourceMetadata)
 	ev.note("authorization server metadata", err)
 	return ev, nil
+}
+
+func (p *prober) collectAuthenticated(ctx context.Context, endpoint string, ev *Evidence) {
+	answer, err := p.authenticatedToolsList(ctx, endpoint)
+	ev.note("authenticated tools/list", err)
+	if answer != nil {
+		ev.AuthToolsList = answer
+		ev.AuthTools, ev.AuthToolsListed = DecodeToolsList(answer.Header.Get("Content-Type"), answer.Body)
+	}
+	ev.TokenAudience = tokenAudience(p.opts.Headers.Get("Authorization"))
 }
 
 func (ev *Evidence) note(probeName string, err error) {

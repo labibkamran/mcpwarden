@@ -19,11 +19,7 @@ func (p *prober) foreignOriginToolsList(ctx context.Context, endpoint string) (*
 	if err != nil {
 		return nil, err
 	}
-	for name, values := range p.opts.Headers {
-		if req.Header.Get(name) == "" {
-			req.Header[name] = values
-		}
-	}
+	p.addUserHeaders(req)
 	req.Header.Set("Origin", ForeignOrigin)
 	return p.send(req)
 }

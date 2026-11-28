@@ -24,6 +24,7 @@ func TestRun(t *testing.T) {
 		{name: "scan usage error points to help", args: []string{"scan", "--format", "xml", "https://a"}, wantCode: cli.ExitError, wantStderr: `Run "mcpwarden scan -h"`},
 		{name: "scan help prints flags to stdout", args: []string{"scan", "-h"}, wantCode: cli.ExitOK, wantStdout: "-fail-on severity"},
 		{name: "list-checks prints the catalog", args: []string{"list-checks"}, wantCode: cli.ExitOK, wantStdout: "MW001  critical  No authentication required"},
+		{name: "list-checks marks opt-in rules", args: []string{"list-checks"}, wantCode: cli.ExitOK, wantStdout: "Token audience not bound (opt-in: --enable MW011)"},
 	}
 
 	for _, tt := range tests {

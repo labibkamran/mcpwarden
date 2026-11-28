@@ -4,7 +4,9 @@
 // answers with JSON or with an SSE stream whose first event holds the JSON-RPC response;
 // DecodeToolsList reads both and reports whether the response carried a result. An answer speaks
 // MCP if it is a 401 or 403 challenge or a JSON-RPC 2.0 result or error; anything else, such as a
-// 404 page, means the URL is not an MCP endpoint and must not be graded.
+// 404 page, means the URL is not an MCP endpoint and must not be graded. Tool annotation hints
+// are pointers because the specification gives an absent hint its own default, so absent and
+// false must stay distinguishable.
 
 package probe
 
@@ -19,7 +21,13 @@ import (
 const ProtocolVersion = "2026-07-28"
 
 type Tool struct {
-	Name string `json:"name"`
+	Name        string           `json:"name"`
+	Annotations *ToolAnnotations `json:"annotations"`
+}
+
+type ToolAnnotations struct {
+	ReadOnlyHint    *bool `json:"readOnlyHint"`
+	DestructiveHint *bool `json:"destructiveHint"`
 }
 
 func toolsListBody(clientVersion string) []byte {
