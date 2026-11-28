@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	ExitOK    = 0
-	ExitError = 2
+	ExitOK       = 0
+	ExitFindings = 1
+	ExitError    = 2
 )
 
 const usage = `Usage: mcpwarden <command> [flags]
@@ -34,7 +35,7 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 		fmt.Fprintln(stdout, usage)
 		return ExitOK
 	case "scan":
-		return runScan(args[1:], stdout, stderr)
+		return runScan(args[1:], stdout, stderr, version)
 	case "list-checks":
 		fmt.Fprintf(stderr, "mcpwarden: %s is not implemented yet\n", args[0])
 		return ExitError
