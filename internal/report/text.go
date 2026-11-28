@@ -1,8 +1,8 @@
 // Package report writes scan results (FR-020). Text is the terminal format: one block per target
-// with its grade or the reason it was unreachable, each finding with its evidence, a fix in plain
-// words and a documentation link (NFR-013), notes about probes that failed, then a one-line
-// summary. JSON and SARIF arrive in milestone 4. Writes go through errWriter, so a full disk or a
-// closed pipe is reported once instead of being ignored.
+// with its grade, or the reason it was unreachable or is not an MCP endpoint; each finding with its
+// evidence, a fix in plain words and a documentation link (NFR-013); notes about probes that
+// failed; then a one-line summary. JSON and SARIF arrive in milestone 4. Writes go through
+// errWriter, so a full disk or a closed pipe is reported once instead of being ignored.
 package report
 
 import (
@@ -36,8 +36,12 @@ func Text(w io.Writer, results []engine.Result) error {
 
 func writeResult(ew *errWriter, r engine.Result) {
 	ew.printf("%s\n", r.Target)
-	if r.Status == engine.StatusUnreachable {
+	switch r.Status {
+	case engine.StatusUnreachable:
 		ew.printf("  Unreachable: %v\n\n", r.Err)
+		return
+	case engine.StatusNotMCP:
+		ew.printf("  Not an MCP endpoint: %v\n\n", r.Err)
 		return
 	}
 	ew.printf("  Grade %s · %s\n", r.Grade, plural(len(r.Findings), "finding"))
@@ -54,18 +58,20 @@ func writeResult(ew *errWriter, r engine.Result) {
 }
 
 func writeSummary(ew *errWriter, results []engine.Result) {
-	unreachable, counts, total := 0, map[check.Severity]int{}, 0
+	statuses, counts, total := map[engine.Status]int{}, map[check.Severity]int{}, 0
 	for _, r := range results {
-		if r.Status == engine.StatusUnreachable {
-			unreachable++
-		}
+		statuses[r.Status]++
 		for _, f := range r.Findings {
 			counts[f.Rule.Severity]++
 			total++
 		}
 	}
-	ew.printf("%s: %d scanned, %d unreachable · %s",
-		plural(len(results), "target"), len(results)-unreachable, unreachable, plural(total, "finding"))
+	ew.printf("%s: %d scanned, %d unreachable", plural(len(results), "target"),
+		statuses[engine.StatusScanned], statuses[engine.StatusUnreachable])
+	if n := statuses[engine.StatusNotMCP]; n > 0 {
+		ew.printf(", %d not MCP", n)
+	}
+	ew.printf(" · %s", plural(total, "finding"))
 	if breakdown := severityBreakdown(counts); breakdown != "" {
 		ew.printf(" (%s)", breakdown)
 	}

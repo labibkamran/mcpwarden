@@ -69,6 +69,21 @@ func TestScanExitCodes(t *testing.T) {
 	}
 }
 
+func TestScanDoesNotGradeANonMCPURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("<pre>Cannot POST /</pre>"))
+	}))
+	defer srv.Close()
+
+	code, stdout, _ := runCLI("scan", srv.URL)
+
+	if code != cli.ExitError || !strings.Contains(stdout, "Not an MCP endpoint") || strings.Contains(stdout, "Grade") {
+		t.Errorf("exit %d, stdout %q; want 2, \"Not an MCP endpoint\" and no grade", code, stdout)
+	}
+}
+
 func TestScanNeverPrintsTheToken(t *testing.T) {
 	trusting := mockserver.Secure()
 	trusting.ValidateOrigin = false

@@ -41,6 +41,11 @@ func sampleResults(t *testing.T) []engine.Result {
 			Err:    errors.New("tools/list: connection refused"),
 		},
 		{
+			Target: mustTarget(t, "https://site.example/"),
+			Status: engine.StatusNotMCP,
+			Err:    errors.New("tools/list got HTTP 404 (text/html) instead of an MCP response"),
+		},
+		{
 			Target: mustTarget(t, "https://safe.example/mcp"),
 			Status: engine.StatusScanned,
 			Grade:  "A",
@@ -69,10 +74,13 @@ func TestText(t *testing.T) {
 https://down.example/mcp
   Unreachable: tools/list: connection refused
 
+https://site.example/
+  Not an MCP endpoint: tools/list got HTTP 404 (text/html) instead of an MCP response
+
 https://safe.example/mcp
   Grade A · 0 findings
 
-3 targets: 2 scanned, 1 unreachable · 1 finding (1 critical)
+4 targets: 2 scanned, 1 unreachable, 1 not MCP · 1 finding (1 critical)
 `
 	if out.String() != want {
 		t.Errorf("report =\n%s\nwant\n%s", out.String(), want)

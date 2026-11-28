@@ -53,7 +53,9 @@ func TestRunKeepsOrderAndReportsUnreachable(t *testing.T) {
 	gone := httptest.NewServer(http.NotFoundHandler())
 	goneURL := gone.URL
 	gone.Close()
-	targets := mustTargets(t, vulnerable.URL+mockserver.Path, goneURL, secure.URL+mockserver.Path)
+	notMCP := httptest.NewServer(http.NotFoundHandler())
+	defer notMCP.Close()
+	targets := mustTargets(t, vulnerable.URL+mockserver.Path, goneURL, secure.URL+mockserver.Path, notMCP.URL)
 
 	results := engine.Run(context.Background(), targets, options(2))
 
@@ -61,6 +63,7 @@ func TestRunKeepsOrderAndReportsUnreachable(t *testing.T) {
 		`scanned grade="D" findings=1 err=false`,
 		`unreachable grade="" findings=0 err=true`,
 		`scanned grade="A" findings=0 err=false`,
+		`not-mcp grade="" findings=0 err=true`,
 	}
 	if got := describe(results); !slices.Equal(got, want) {
 		t.Errorf("results =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

@@ -1,9 +1,10 @@
 // The scan command (FR-002, FR-014, FR-021): parse the options, scan every target with the
 // selected rules and write the report to stdout or --output. Exit codes: 1 when any finding is at
-// or above --fail-on; otherwise 2 when a target was unreachable, because its result is missing;
-// otherwise 0. Usage errors exit 2 with a pointer to -h (FR-004), and Ctrl-C cancels the scan.
-// --config targets (milestone 3) and json or sarif output (milestone 4) are refused until they
-// exist. The report file gets mode 0600 because it lists the target's weaknesses.
+// or above --fail-on; otherwise 2 when a target was unreachable or is not an MCP endpoint, because
+// its result is missing; otherwise 0. Usage errors exit 2 with a pointer to -h (FR-004), and
+// Ctrl-C cancels the scan. --config targets (milestone 3) and json or sarif output (milestone 4)
+// are refused until they exist. The report file gets mode 0600 because it lists the target's
+// weaknesses.
 
 package cli
 
@@ -86,14 +87,14 @@ func writeReport(path string, stdout io.Writer, results []engine.Result) (err er
 }
 
 func exitCode(results []engine.Result, failOn check.Severity) int {
-	unreachable := false
+	incomplete := false
 	for _, r := range results {
 		if score.Fails(r.Findings, failOn) {
 			return ExitFindings
 		}
-		unreachable = unreachable || r.Status == engine.StatusUnreachable
+		incomplete = incomplete || r.Status != engine.StatusScanned
 	}
-	if unreachable {
+	if incomplete {
 		return ExitError
 	}
 	return ExitOK

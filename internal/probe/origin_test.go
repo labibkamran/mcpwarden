@@ -107,6 +107,7 @@ func TestCollectCrossOriginHeaders(t *testing.T) {
 func TestCollectNotesFailedProbes(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodOptions {
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 		conn, _, _ := w.(http.Hijacker).Hijack()

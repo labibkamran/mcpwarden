@@ -53,6 +53,8 @@ func TestCollectOAuthMetadataFallbacks(t *testing.T) {
 	var base string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/mcp":
+			w.WriteHeader(http.StatusUnauthorized)
 		case "/.well-known/oauth-protected-resource":
 			writeTestJSON(w, map[string]any{"resource": base + "/mcp", "authorization_servers": []string{base + "/tenant1"}})
 		case "/tenant1/.well-known/openid-configuration":

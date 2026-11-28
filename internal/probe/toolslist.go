@@ -2,7 +2,9 @@
 // tools/list directly, without an initialize handshake, and the MCP-Protocol-Version and
 // Mcp-Method headers must match the method and the protocol version in params._meta. A server
 // answers with JSON or with an SSE stream whose first event holds the JSON-RPC response;
-// DecodeToolsList reads both and reports whether the response carried a result.
+// DecodeToolsList reads both and reports whether the response carried a result. An answer speaks
+// MCP if it is a 401 or 403 challenge or a JSON-RPC 2.0 result or error; anything else, such as a
+// 404 page, means the URL is not an MCP endpoint and must not be graded.
 
 package probe
 
@@ -47,19 +49,35 @@ func newToolsListRequest(ctx context.Context, url string, body []byte) (*http.Re
 }
 
 func DecodeToolsList(contentType string, body []byte) ([]Tool, bool) {
-	payload := body
-	if mediaType, _, err := mime.ParseMediaType(contentType); err == nil && mediaType == "text/event-stream" {
-		payload = firstEventData(body)
-	}
 	var msg struct {
 		Result *struct {
 			Tools []Tool `json:"tools"`
 		} `json:"result"`
 	}
-	if err := json.Unmarshal(payload, &msg); err != nil || msg.Result == nil {
+	if err := json.Unmarshal(jsonPayload(contentType, body), &msg); err != nil || msg.Result == nil {
 		return nil, false
 	}
 	return msg.Result.Tools, true
+}
+
+func speaksMCP(ex *Exchange) bool {
+	if ex.Status == http.StatusUnauthorized || ex.Status == http.StatusForbidden {
+		return true
+	}
+	var msg struct {
+		JSONRPC string          `json:"jsonrpc"`
+		Result  json.RawMessage `json:"result"`
+		Error   json.RawMessage `json:"error"`
+	}
+	err := json.Unmarshal(jsonPayload(ex.Header.Get("Content-Type"), ex.Body), &msg)
+	return err == nil && msg.JSONRPC == "2.0" && (msg.Result != nil || msg.Error != nil)
+}
+
+func jsonPayload(contentType string, body []byte) []byte {
+	if mediaType, _, err := mime.ParseMediaType(contentType); err == nil && mediaType == "text/event-stream" {
+		return firstEventData(body)
+	}
+	return body
 }
 
 func firstEventData(stream []byte) []byte {

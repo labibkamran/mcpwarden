@@ -66,10 +66,11 @@ type recorder struct {
 	seen []*http.Request
 }
 
-func (rec *recorder) ServeHTTP(_ http.ResponseWriter, r *http.Request) {
+func (rec *recorder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
 	rec.seen = append(rec.seen, &http.Request{Method: r.Method, Header: r.Header.Clone()})
+	w.WriteHeader(http.StatusUnauthorized)
 }
 
 func (rec *recorder) find(method, origin string) http.Header {
@@ -105,6 +106,52 @@ func TestCollectSendsMCPHeaders(t *testing.T) {
 		if got.Get(name) != value {
 			t.Errorf("header %s = %q, want %q", name, got.Get(name), value)
 		}
+	}
+}
+
+func TestCollectRecognizesMCPAnswers(t *testing.T) {
+	tests := []struct {
+		name        string
+		status      int
+		contentType string
+		body        string
+		want        bool
+	}{
+		{name: "401 challenge", status: http.StatusUnauthorized, want: true},
+		{name: "403 refusal", status: http.StatusForbidden, want: true},
+		{name: "json-rpc result", status: http.StatusOK, contentType: "application/json", body: `{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}`, want: true},
+		{name: "json-rpc error for an unsupported version", status: http.StatusBadRequest, contentType: "application/json", body: `{"jsonrpc":"2.0","id":1,"error":{"code":-32602}}`, want: true},
+		{name: "json-rpc result over sse", status: http.StatusOK, contentType: "text/event-stream", body: "data: {\"jsonrpc\":\"2.0\",\"result\":{}}\n\n", want: true},
+		{name: "html 404 page", status: http.StatusNotFound, contentType: "text/html", body: "<pre>Cannot POST /</pre>"},
+		{name: "empty 200", status: http.StatusOK},
+		{name: "json without jsonrpc 2.0", status: http.StatusOK, contentType: "application/json", body: `{"result":{}}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := &recorder{}
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				rec.mu.Lock()
+				rec.seen = append(rec.seen, r)
+				rec.mu.Unlock()
+				w.Header().Set("Content-Type", tt.contentType)
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer srv.Close()
+
+			ev, err := collect(t, srv.URL, probe.Options{})
+
+			if err != nil {
+				t.Fatalf("Collect error: %v", err)
+			}
+			if ev.SpeaksMCP != tt.want {
+				t.Errorf("SpeaksMCP = %v, want %v", ev.SpeaksMCP, tt.want)
+			}
+			if !tt.want && len(rec.seen) != 1 {
+				t.Errorf("sent %d requests to a non-MCP URL, want only the first", len(rec.seen))
+			}
+		})
 	}
 }
 

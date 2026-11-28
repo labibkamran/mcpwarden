@@ -53,7 +53,7 @@ Flags and URLs can come in any order; `--header`, `--enable` and `--disable` can
 |---|---|
 | 0 | Scan finished; no finding at or above `--fail-on` |
 | 1 | Scan finished; at least one finding at or above `--fail-on` |
-| 2 | Usage error or scanner failure, including an unreachable target; no reliable result |
+| 2 | Usage error or scanner failure, including an unreachable target or a URL that is not an MCP endpoint; no reliable result |
 
 Exit code 1 wins when one target has findings and another is unreachable.
 

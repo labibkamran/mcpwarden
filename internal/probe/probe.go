@@ -1,9 +1,11 @@
 // Package probe collects evidence about one MCP server with read-only requests. It is the only
 // package that touches the network (SRS 6.1). The first request is an unauthenticated tools/list
 // (FR-007); if it fails at the network level the target is unreachable (FR-014) and Collect
-// returns an error. Later probes that fail leave their field nil and add to ProbeErrors, because
-// checks treat missing evidence as "cannot tell", never as a finding. ResourceMetadataMissing is
-// true only when every metadata location answered and none held a document.
+// returns an error. If its answer does not speak MCP, SpeaksMCP is false and no further request
+// is sent, because nothing at the URL can be judged. Later probes that fail leave their field nil
+// and add to ProbeErrors, because checks treat missing evidence as "cannot tell", never as a
+// finding. ResourceMetadataMissing is true only when every metadata location answered and none
+// held a document.
 package probe
 
 import (
@@ -27,6 +29,7 @@ type Evidence struct {
 	ToolsList     *Exchange
 	Tools         []Tool
 	ToolsListed   bool
+	SpeaksMCP     bool
 	ForeignOrigin *Exchange
 	Preflight     *Exchange
 
@@ -53,6 +56,9 @@ func Collect(ctx context.Context, t target.Target, opts Options) (*Evidence, err
 	}
 	ev := &Evidence{Target: t, ToolsList: toolsList}
 	ev.Tools, ev.ToolsListed = DecodeToolsList(toolsList.Header.Get("Content-Type"), toolsList.Body)
+	if ev.SpeaksMCP = speaksMCP(toolsList); !ev.SpeaksMCP {
+		return ev, nil
+	}
 
 	ev.ForeignOrigin, err = p.foreignOriginToolsList(ctx, endpoint)
 	ev.note("foreign-origin tools/list", err)
