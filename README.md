@@ -26,9 +26,10 @@ https://mcp.example.com/mcp
 
 ## What mcpwarden sends
 
-Only read-only requests, at most nine per server plus same-host redirects, each with a 10 s timeout and a 1 MB limit on the answer:
+Only read-only requests, at most ten per server plus same-host redirects, each with a 10 s timeout and a 1 MB limit on the answer:
 
 - `POST tools/list` without credentials, then again from `Origin: https://evil.example`, carrying any `--header` values
+- with `--header` values, `POST tools/list` once more as your client, so scope and audience rules can see what the token unlocks
 - an `OPTIONS` CORS preflight from that origin
 - `GET` requests for OAuth metadata (RFC 9728, RFC 8414, OpenID Connect) on the server and its authorization server
 
