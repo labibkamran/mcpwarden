@@ -16,7 +16,7 @@ func TestParseRuleSelection(t *testing.T) {
 		want    check.RuleSelection
 	}{
 		{name: "none", want: check.RuleSelection{}},
-		{name: "enable and disable", enable: []string{"MW011"}, disable: []string{"MW003"}, want: check.RuleSelection{Enable: []string{"MW011"}, Disable: []string{"MW003"}}},
+		{name: "enable and disable", enable: []string{"MW001"}, disable: []string{"MW003"}, want: check.RuleSelection{Enable: []string{"MW001"}, Disable: []string{"MW003"}}},
 		{name: "uppercases", disable: []string{"mw003"}, want: check.RuleSelection{Disable: []string{"MW003"}}},
 		{name: "drops duplicates", disable: []string{"MW003", "mw003", "MW004"}, want: check.RuleSelection{Disable: []string{"MW003", "MW004"}}},
 	}
@@ -42,10 +42,10 @@ func TestParseRuleSelectionRejects(t *testing.T) {
 		disable []string
 		wantErr string
 	}{
-		{name: "wrong prefix", disable: []string{"XX003"}, wantErr: `invalid rule ID "XX003"`},
-		{name: "too short", enable: []string{"MW1"}, wantErr: `invalid rule ID "MW1"`},
-		{name: "letters in number", enable: []string{"MW0A1"}, wantErr: "want the form MW001"},
-		{name: "empty", disable: []string{""}, wantErr: "want the form MW001"},
+		{name: "wrong prefix", disable: []string{"XX003"}, wantErr: `unknown rule ID "XX003"`},
+		{name: "too short", enable: []string{"MW1"}, wantErr: `unknown rule ID "MW1"`},
+		{name: "well-formed but not in the catalog", enable: []string{"MW999"}, wantErr: "run mcpwarden list-checks"},
+		{name: "empty", disable: []string{""}, wantErr: "unknown rule ID"},
 		{name: "conflict", enable: []string{"MW003"}, disable: []string{"mw003"}, wantErr: "MW003 is both enabled and disabled"},
 	}
 

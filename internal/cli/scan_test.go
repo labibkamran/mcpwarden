@@ -49,7 +49,7 @@ func TestParseScanArgsAllFlags(t *testing.T) {
 		"--timeout", "3s",
 		"--concurrency", "4",
 		"--header", "Authorization: Bearer abc",
-		"--enable", "MW011",
+		"--enable", "MW002",
 		"--disable", "MW003",
 		"http://localhost:8080/mcp",
 	}
@@ -68,7 +68,7 @@ func TestParseScanArgsAllFlags(t *testing.T) {
 		Timeout:     3 * time.Second,
 		Concurrency: 4,
 		Headers:     http.Header{"Authorization": {"Bearer abc"}},
-		Rules:       check.RuleSelection{Enable: []string{"MW011"}, Disable: []string{"MW003"}},
+		Rules:       check.RuleSelection{Enable: []string{"MW002"}, Disable: []string{"MW003"}},
 	}
 	if !reflect.DeepEqual(opts, want) {
 		t.Errorf("ParseScanArgs =\n%+v\nwant\n%+v", opts, want)
@@ -122,7 +122,7 @@ func TestParseScanArgsRejects(t *testing.T) {
 		{name: "zero timeout", args: []string{url, "--timeout", "0s"}, wantErr: "--timeout 0s"},
 		{name: "unparsable timeout", args: []string{url, "--timeout", "soon"}, wantErr: "-timeout"},
 		{name: "zero concurrency", args: []string{url, "--concurrency", "0"}, wantErr: "--concurrency 0"},
-		{name: "bad rule id", args: []string{url, "--disable", "X1"}, wantErr: `invalid rule ID "X1"`},
+		{name: "bad rule id", args: []string{url, "--disable", "X1"}, wantErr: `unknown rule ID "X1"`},
 		{name: "unknown flag", args: []string{url, "--bogus"}, wantErr: "-bogus"},
 	}
 
