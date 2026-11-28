@@ -5,7 +5,34 @@ Fast, offline security scanner for MCP servers — checks 2026-07-28 auth confor
 
 ## Status
 
-Early development (milestone 1: foundation). `scan` parses and validates all of its flags and targets, but scanning itself lands in milestone 2, so a valid scan exits 2 for now. `list-checks` arrives with the first rules.
+Milestone 2 of 5: `scan` checks remote MCP servers against rules [MW001–MW005](docs/rules.md) and prints a text report with a grade from A to F. Scanning MCP client config files (`--config`) arrives in milestone 3, and JSON and SARIF reports in milestone 4.
+
+## Example
+
+```text
+$ mcpwarden scan https://mcp.example.com/mcp
+https://mcp.example.com/mcp
+  Grade D · 1 finding
+
+  CRITICAL  MW001  No authentication required
+            tools/list returned 200 with 7 tools and no token
+            Fix:  Require OAuth 2.1 bearer tokens on every request and answer 401 without one.
+            Docs: https://github.com/labibkamran/mcpwarden/blob/main/docs/rules.md#mw001
+
+1 target: 1 scanned, 0 unreachable · 1 finding (1 critical)
+```
+
+`mcpwarden list-checks` prints every rule; [docs/rules.md](docs/rules.md) explains each one and how to fix it.
+
+## What mcpwarden sends
+
+Only read-only requests, at most nine per server plus same-host redirects, each with a 10 s timeout and a 1 MB limit on the answer:
+
+- `POST tools/list` without credentials, then again from `Origin: https://evil.example`, carrying any `--header` values
+- an `OPTIONS` CORS preflight from that origin
+- `GET` requests for OAuth metadata (RFC 9728, RFC 8414, OpenID Connect) on the server and its authorization server
+
+Redirects are followed only on the same host, at most three times. Requests identify themselves as `mcpwarden/<version>` with a link to this project.
 
 ## Usage
 
@@ -15,7 +42,7 @@ mcpwarden scan [URL...] [--config PATH]
                [--fail-on low|medium|high|critical]   # default high
                [--timeout 10s] [--concurrency 16]
                [--header "Authorization: Bearer $TOKEN"]
-               [--enable MW011] [--disable MW003]
+               [--enable MW002] [--disable MW003]
 mcpwarden list-checks
 mcpwarden version
 ```
@@ -26,7 +53,9 @@ Flags and URLs can come in any order; `--header`, `--enable` and `--disable` can
 |---|---|
 | 0 | Scan finished; no finding at or above `--fail-on` |
 | 1 | Scan finished; at least one finding at or above `--fail-on` |
-| 2 | Usage error or scanner failure; no reliable result |
+| 2 | Usage error or scanner failure, including an unreachable target or a URL that is not an MCP endpoint; no reliable result |
+
+Exit code 1 wins when one target has findings and another is unreachable.
 
 ## Build
 
@@ -48,7 +77,7 @@ make test
 make fmt
 ```
 
-Project layout follows the [official Go module layout](https://go.dev/doc/modules/layout): commands in `cmd/`, logic in `internal/`. See [AGENTS.md](AGENTS.md) for the package map and coding guidelines.
+Project layout follows the [official Go module layout](https://go.dev/doc/modules/layout): commands in `cmd/`, logic in `internal/` with one package per feature, and integration tests with mock MCP servers in `test/`. See [AGENTS.md](AGENTS.md) for the package map and coding guidelines.
 
 ## License
 

@@ -39,7 +39,8 @@ cmd/mcpwarden/main.go     entry point only: build version + cli.Run
 internal/<feature>/       one package per feature (table below)
   <name>.go               code
   <name>_test.go          its tests, package <feature>_test
-test/                     added in M2: integration tests, mock MCP servers, golden files
+test/mockserver/          configurable MCP server: Secure() plus one-setting vulnerable variants
+test/integration/         end-to-end rule tests against the mock servers
 ```
 
 | Package | Responsibility |
@@ -49,8 +50,8 @@ test/                     added in M2: integration tests, mock MCP servers, gold
 | `internal/target` | Turn URLs and config files into `Target` values |
 | `internal/engine` | Worker pool, deadlines, rate limits, per-target pipeline |
 | `internal/probe` | HTTP prober, OAuth fetcher, MCP client; builds `Evidence` |
-| `internal/check` | Registry of rules MW001–MW012; evidence in, findings out |
-| `internal/score` | Severity, OWASP labels, grade, fail-on decision |
+| `internal/check` | Catalog of rules MW001–MW012, one file per rule; evidence in, findings out |
+| `internal/score` | Grade A–F and the fail-on decision |
 | `internal/report` | Text, JSON and SARIF writers |
 | `cmd/mcpwarden-api`, `cmd/mcpwarden-worker` | v2 service only; do not start before v1.0 ships |
 
@@ -62,8 +63,9 @@ test/                     added in M2: integration tests, mock MCP servers, gold
 - Use an internal test (`package target`) only when behavior cannot be reached through the public API, and say why
   in a comment.
 - **Fuzz tests** for parsers live beside the parser (`fuzz_test.go`) and are added to `.github/workflows/fuzz.yml`.
-- **Integration tests, mock MCP servers and golden files** go in the top-level `test/` folder (from M2). Every rule
-  ships with a vulnerable and a secure `httptest` server there.
+- **Integration tests and mock MCP servers** go in the top-level `test/` folder. Every rule ships with a case in
+  `test/integration` that runs it against `mockserver.Secure()` and a variant that differs in one setting, and
+  asserts the exact set of findings.
 - Fixed input files for a package go in `<package>/testdata/`, which the Go tool ignores when building.
 - `internal/check` and `internal/probe` must keep at least 80% test coverage (NFR-014).
 

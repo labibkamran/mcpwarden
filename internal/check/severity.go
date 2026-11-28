@@ -1,7 +1,6 @@
-// Package check holds the security rules (MW001–MW012) and the types they share.
-// Checks judge collected evidence and perform no network I/O (FR-015). Severity is
-// ordered low < medium < high < critical so thresholds such as --fail-on are plain
-// comparisons; its zero value is invalid.
+// Severity is ordered low < medium < high < critical so thresholds such as --fail-on are plain
+// comparisons. The zero value is invalid, so a finding someone forgot to rate stands out.
+
 package check
 
 import (

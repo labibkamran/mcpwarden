@@ -1,137 +1,147 @@
 package cli_test
 
 import (
-	"errors"
-	"flag"
+	"bytes"
 	"net/http"
-	"reflect"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/labibkamran/mcpwarden/internal/check"
 	"github.com/labibkamran/mcpwarden/internal/cli"
+	"github.com/labibkamran/mcpwarden/test/mockserver"
 )
 
-func TestParseScanArgsDefaults(t *testing.T) {
-	opts, err := cli.ParseScanArgs([]string{"https://mcp.example.com/mcp"})
+const tokenHeader = "Authorization: Bearer " + mockserver.Token
 
-	if err != nil {
-		t.Fatalf("ParseScanArgs error: %v", err)
-	}
-	if len(opts.Targets) != 1 || opts.Targets[0].String() != "https://mcp.example.com/mcp" {
-		t.Errorf("Targets = %v, want [https://mcp.example.com/mcp]", opts.Targets)
-	}
-	if opts.Format != "text" {
-		t.Errorf("Format = %q, want text", opts.Format)
-	}
-	if opts.FailOn != check.SeverityHigh {
-		t.Errorf("FailOn = %v, want high", opts.FailOn)
-	}
-	if opts.Timeout != 10*time.Second {
-		t.Errorf("Timeout = %v, want 10s", opts.Timeout)
-	}
-	if opts.Concurrency != 16 {
-		t.Errorf("Concurrency = %d, want 16", opts.Concurrency)
-	}
-	if opts.Output != "" || opts.ConfigPath != "" || len(opts.Headers) != 0 {
-		t.Errorf("Output, ConfigPath and Headers should be empty, got %q, %q, %v", opts.Output, opts.ConfigPath, opts.Headers)
-	}
+func serve(t *testing.T, cfg mockserver.Config) string {
+	t.Helper()
+	srv := mockserver.New(cfg)
+	t.Cleanup(srv.Close)
+	return srv.URL + mockserver.Path
 }
 
-func TestParseScanArgsAllFlags(t *testing.T) {
-	args := []string{
-		"https://a.example.com/mcp",
-		"--config", "claude_desktop_config.json",
-		"--format", "sarif",
-		"--output", "report.sarif",
-		"--fail-on", "critical",
-		"--timeout", "3s",
-		"--concurrency", "4",
-		"--header", "Authorization: Bearer abc",
-		"--enable", "MW011",
-		"--disable", "MW003",
-		"http://localhost:8080/mcp",
-	}
-
-	opts, err := cli.ParseScanArgs(args)
-
-	if err != nil {
-		t.Fatalf("ParseScanArgs error: %v", err)
-	}
-	want := cli.ScanOptions{
-		Targets:     opts.Targets,
-		ConfigPath:  "claude_desktop_config.json",
-		Format:      "sarif",
-		Output:      "report.sarif",
-		FailOn:      check.SeverityCritical,
-		Timeout:     3 * time.Second,
-		Concurrency: 4,
-		Headers:     http.Header{"Authorization": {"Bearer abc"}},
-		Rules:       check.RuleSelection{Enable: []string{"MW011"}, Disable: []string{"MW003"}},
-	}
-	if !reflect.DeepEqual(opts, want) {
-		t.Errorf("ParseScanArgs =\n%+v\nwant\n%+v", opts, want)
-	}
-	if len(opts.Targets) != 2 || opts.Targets[1].String() != "http://localhost:8080/mcp" {
-		t.Errorf("Targets = %v, want both URLs in order", opts.Targets)
-	}
+func unreachableURL() string {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	srv.Close()
+	return srv.URL
 }
 
-func TestParseScanArgsConfigOnly(t *testing.T) {
-	opts, err := cli.ParseScanArgs([]string{"--config", "mcp.json"})
-
-	if err != nil {
-		t.Fatalf("ParseScanArgs error: %v", err)
-	}
-	if opts.ConfigPath != "mcp.json" || len(opts.Targets) != 0 {
-		t.Errorf("ConfigPath = %q, Targets = %v; want mcp.json and no URL targets", opts.ConfigPath, opts.Targets)
-	}
+func runCLI(args ...string) (code int, stdout, stderr string) {
+	var out, errOut bytes.Buffer
+	code = cli.Run(args, &out, &errOut, "test")
+	return code, out.String(), errOut.String()
 }
 
-func TestParseScanArgsDeduplicatesTargets(t *testing.T) {
-	opts, err := cli.ParseScanArgs([]string{"https://A.example.com:443/mcp", "https://a.example.com/mcp#x"})
-
-	if err != nil {
-		t.Fatalf("ParseScanArgs error: %v", err)
-	}
-	if len(opts.Targets) != 1 {
-		t.Errorf("Targets = %v, want one normalized target", opts.Targets)
-	}
-}
-
-func TestParseScanArgsHelp(t *testing.T) {
-	_, err := cli.ParseScanArgs([]string{"--help"})
-
-	if !errors.Is(err, flag.ErrHelp) {
-		t.Errorf("ParseScanArgs(--help) error = %v, want flag.ErrHelp", err)
-	}
-}
-
-func TestParseScanArgsRejects(t *testing.T) {
-	const url = "https://mcp.example.com/mcp"
+func TestScanExitCodes(t *testing.T) {
+	open := mockserver.Secure()
+	open.RequireAuth = false
+	wildcard := mockserver.Secure()
+	wildcard.AllowOrigin = "*"
+	secureURL, openURL, wildcardURL := serve(t, mockserver.Secure()), serve(t, open), serve(t, wildcard)
 	tests := []struct {
-		name    string
-		args    []string
-		wantErr string
+		name       string
+		args       []string
+		wantCode   int
+		wantStdout string
 	}{
-		{name: "nothing to scan", args: nil, wantErr: "nothing to scan"},
-		{name: "bad scheme", args: []string{"ftp://x"}, wantErr: `target #1: unsupported scheme "ftp"`},
-		{name: "bad format", args: []string{url, "--format", "xml"}, wantErr: `--format "xml"`},
-		{name: "bad fail-on", args: []string{url, "--fail-on", "severe"}, wantErr: "--fail-on"},
-		{name: "zero timeout", args: []string{url, "--timeout", "0s"}, wantErr: "--timeout 0s"},
-		{name: "unparsable timeout", args: []string{url, "--timeout", "soon"}, wantErr: "-timeout"},
-		{name: "zero concurrency", args: []string{url, "--concurrency", "0"}, wantErr: "--concurrency 0"},
-		{name: "bad rule id", args: []string{url, "--disable", "X1"}, wantErr: `invalid rule ID "X1"`},
-		{name: "unknown flag", args: []string{url, "--bogus"}, wantErr: "-bogus"},
+		{name: "secure server passes", args: []string{secureURL}, wantCode: cli.ExitOK, wantStdout: "Grade A"},
+		{name: "open server fails on MW001", args: []string{openURL}, wantCode: cli.ExitFindings, wantStdout: "CRITICAL  MW001"},
+		{name: "disabled rule is not run", args: []string{openURL, "--disable", "MW001"}, wantCode: cli.ExitOK, wantStdout: "Grade A"},
+		{name: "medium finding passes fail-on high", args: []string{wildcardURL}, wantCode: cli.ExitOK, wantStdout: "MEDIUM    MW003"},
+		{name: "medium finding fails fail-on medium", args: []string{wildcardURL, "--fail-on", "medium"}, wantCode: cli.ExitFindings, wantStdout: "MW003"},
+		{name: "unreachable target exits 2", args: []string{unreachableURL()}, wantCode: cli.ExitError, wantStdout: "Unreachable"},
+		{name: "findings outrank an unreachable target", args: []string{openURL, unreachableURL()}, wantCode: cli.ExitFindings, wantStdout: "1 unreachable"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := cli.ParseScanArgs(tt.args)
+			code, stdout, stderr := runCLI(append([]string{"scan"}, tt.args...)...)
 
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("ParseScanArgs(%q) error = %v, want it to contain %q", tt.args, err, tt.wantErr)
+			if code != tt.wantCode {
+				t.Errorf("exit code = %d, want %d (stderr %q)", code, tt.wantCode, stderr)
+			}
+			if !strings.Contains(stdout, tt.wantStdout) {
+				t.Errorf("stdout = %q, want it to contain %q", stdout, tt.wantStdout)
+			}
+		})
+	}
+}
+
+func TestScanDoesNotGradeANonMCPURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("<pre>Cannot POST /</pre>"))
+	}))
+	defer srv.Close()
+
+	code, stdout, _ := runCLI("scan", srv.URL)
+
+	if code != cli.ExitError || !strings.Contains(stdout, "Not an MCP endpoint") || strings.Contains(stdout, "Grade") {
+		t.Errorf("exit %d, stdout %q; want 2, \"Not an MCP endpoint\" and no grade", code, stdout)
+	}
+}
+
+func TestScanNeverPrintsTheToken(t *testing.T) {
+	trusting := mockserver.Secure()
+	trusting.ValidateOrigin = false
+
+	code, stdout, stderr := runCLI("scan", serve(t, trusting), "--header", tokenHeader)
+
+	if code != cli.ExitFindings || !strings.Contains(stdout, "MW002") {
+		t.Fatalf("exit code %d, stdout %q; want 1 and an MW002 finding", code, stdout)
+	}
+	if strings.Contains(stdout+stderr, mockserver.Token) {
+		t.Error("the token passed with --header appears in the output")
+	}
+}
+
+func TestScanWritesReportFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "report.txt")
+
+	code, stdout, _ := runCLI("scan", serve(t, mockserver.Secure()), "--output", path)
+
+	report, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read report: %v", err)
+	}
+	info, _ := os.Stat(path)
+	if code != cli.ExitOK || stdout != "" || !strings.Contains(string(report), "Grade A") {
+		t.Errorf("exit %d, stdout %q, report %q; want 0, nothing on stdout, the report in the file", code, stdout, report)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("report file mode = %o, want 600", perm)
+	}
+}
+
+func TestScanReportFileError(t *testing.T) {
+	missingDir := filepath.Join(t.TempDir(), "missing", "report.txt")
+
+	code, _, stderr := runCLI("scan", serve(t, mockserver.Secure()), "--output", missingDir)
+
+	if code != cli.ExitError || !strings.Contains(stderr, "write report") {
+		t.Errorf("exit %d, stderr %q; want 2 and a write report error", code, stderr)
+	}
+}
+
+func TestScanRefusesUnfinishedFeatures(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		wantStderr string
+	}{
+		{name: "config files", args: []string{"scan", "--config", "mcp.json"}, wantStderr: "arrives in milestone 3"},
+		{name: "json report", args: []string{"scan", "https://a.example", "--format", "json"}, wantStderr: "arrive in milestone 4"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, _, stderr := runCLI(tt.args...)
+
+			if code != cli.ExitError || !strings.Contains(stderr, tt.wantStderr) {
+				t.Errorf("exit %d, stderr %q; want 2 and %q", code, stderr, tt.wantStderr)
 			}
 		})
 	}

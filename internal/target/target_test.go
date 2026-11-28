@@ -55,6 +55,8 @@ func TestParseURLRejects(t *testing.T) {
 		{name: "port zero", raw: "http://localhost:0/", wantErr: "invalid port"},
 		{name: "port too large", raw: "http://localhost:70000/", wantErr: "invalid port"},
 		{name: "bad escape", raw: "http://localhost/%zz", wantErr: "invalid url"},
+		{name: "space in query", raw: "http://00? #", wantErr: "contains whitespace"},
+		{name: "space in path", raw: "https://mcp.example.com/a b", wantErr: "contains whitespace"},
 		{name: "credentials", raw: "https://user:pass@mcp.example.com/", wantErr: "credentials in the url"},
 	}
 

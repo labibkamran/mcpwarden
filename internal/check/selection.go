@@ -1,6 +1,5 @@
-// Rule selection (FR-018): rule IDs turned on or off, uppercased and deduplicated.
-// A rule both enabled and disabled is an error. Only the MWnnn syntax is checked
-// until the rule registry exists (M2).
+// Rule selection (FR-018): rule IDs turned on or off, uppercased and deduplicated. An ID must name
+// a rule in the Catalog, and a rule both enabled and disabled is an error.
 
 package check
 
@@ -36,8 +35,8 @@ func parseRuleIDs(raw []string) ([]string, error) {
 	var ids []string
 	for _, r := range raw {
 		id := strings.ToUpper(strings.TrimSpace(r))
-		if !isRuleID(id) {
-			return nil, fmt.Errorf("invalid rule ID %q: want the form MW001", r)
+		if !isKnownRule(id) {
+			return nil, fmt.Errorf("unknown rule ID %q: run mcpwarden list-checks for the rules", r)
 		}
 		if !slices.Contains(ids, id) {
 			ids = append(ids, id)
@@ -46,14 +45,6 @@ func parseRuleIDs(raw []string) ([]string, error) {
 	return ids, nil
 }
 
-func isRuleID(id string) bool {
-	if len(id) != len("MW000") || !strings.HasPrefix(id, "MW") {
-		return false
-	}
-	for _, c := range id[2:] {
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	return true
+func isKnownRule(id string) bool {
+	return slices.ContainsFunc(Catalog(), func(c Check) bool { return c.ID == id })
 }
