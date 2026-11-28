@@ -1,7 +1,8 @@
 // End-to-end config rules (SRS 13.1): each case is one config entry scanned through the whole
 // engine, and asserts the exact set of findings. The secure entry is a pinned package whose secret
 // comes from a variable reference; each vulnerable entry changes one thing about it. No entry is
-// ever executed, and none has a URL that is probed.
+// ever executed. The plain-HTTP case points at a .invalid host, which never resolves (RFC 6761),
+// so it is unreachable without contacting any server and still reports its static finding.
 
 package integration_test
 
@@ -56,5 +57,19 @@ func TestConfigRules(t *testing.T) {
 				t.Errorf("findings = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestConfigPlainHTTPIsReportedWhenUnreachable(t *testing.T) {
+	targets, err := target.ParseConfig("mcp.json", []byte(`{"mcpServers": {"server": {"url": "http://mcp.invalid/mcp"}}}`))
+	if err != nil {
+		t.Fatalf("ParseConfig: %v", err)
+	}
+	opts := engine.Options{Concurrency: 1, Checks: check.Catalog(), Probe: probe.Options{Timeout: time.Second}}
+
+	result := engine.Run(context.Background(), targets, opts)[0]
+
+	if result.Status != engine.StatusUnreachable || len(result.Findings) != 1 || result.Findings[0].Rule.ID != "MW010" {
+		t.Errorf("status %s, findings %v; want unreachable with exactly MW010", result.Status, result.Findings)
 	}
 }
