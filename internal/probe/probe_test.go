@@ -1,0 +1,168 @@
+package probe_test
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/labibkamran/mcpwarden/internal/probe"
+	"github.com/labibkamran/mcpwarden/internal/target"
+	"github.com/labibkamran/mcpwarden/test/mockserver"
+)
+
+func collect(t *testing.T, url string, opts probe.Options) (*probe.Evidence, error) {
+	t.Helper()
+	tgt, err := target.ParseURL(url)
+	if err != nil {
+		t.Fatalf("ParseURL(%q): %v", url, err)
+	}
+	if opts.Timeout == 0 {
+		opts.Timeout = 5 * time.Second
+	}
+	return probe.Collect(context.Background(), tgt, opts)
+}
+
+func TestCollectToolsList(t *testing.T) {
+	open := mockserver.Secure()
+	open.RequireAuth = false
+	openSSE := open
+	openSSE.SSE = true
+	tests := []struct {
+		name       string
+		cfg        mockserver.Config
+		wantStatus int
+		wantListed bool
+		wantTools  int
+	}{
+		{name: "open server lists tools", cfg: open, wantStatus: http.StatusOK, wantListed: true, wantTools: 2},
+		{name: "open server over sse", cfg: openSSE, wantStatus: http.StatusOK, wantListed: true, wantTools: 2},
+		{name: "secure server demands a token", cfg: mockserver.Secure(), wantStatus: http.StatusUnauthorized},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := mockserver.New(tt.cfg)
+			defer srv.Close()
+
+			ev, err := collect(t, srv.URL+mockserver.Path, probe.Options{})
+
+			if err != nil {
+				t.Fatalf("Collect error: %v", err)
+			}
+			if ev.ToolsList.Status != tt.wantStatus || ev.ToolsListed != tt.wantListed || len(ev.Tools) != tt.wantTools {
+				t.Errorf("status %d listed %v tools %d; want %d %v %d",
+					ev.ToolsList.Status, ev.ToolsListed, len(ev.Tools), tt.wantStatus, tt.wantListed, tt.wantTools)
+			}
+		})
+	}
+}
+
+func TestCollectSendsMCPHeaders(t *testing.T) {
+	var got http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+	}))
+	defer srv.Close()
+
+	_, err := collect(t, srv.URL, probe.Options{UserAgent: "mcpwarden/test"})
+
+	if err != nil {
+		t.Fatalf("Collect error: %v", err)
+	}
+	want := map[string]string{
+		"Mcp-Protocol-Version": probe.ProtocolVersion,
+		"Mcp-Method":           "tools/list",
+		"Accept":               "application/json, text/event-stream",
+		"User-Agent":           "mcpwarden/test",
+		"Authorization":        "",
+	}
+	for name, value := range want {
+		if got.Get(name) != value {
+			t.Errorf("header %s = %q, want %q", name, got.Get(name), value)
+		}
+	}
+}
+
+func TestCollectUnreachable(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	url := srv.URL
+	srv.Close()
+
+	_, err := collect(t, url, probe.Options{})
+
+	if err == nil || !strings.Contains(err.Error(), "tools/list") {
+		t.Errorf("Collect error = %v, want a tools/list network error", err)
+	}
+}
+
+func TestCollectTimesOut(t *testing.T) {
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		<-release
+	}))
+	defer srv.Close()
+	defer close(release)
+
+	_, err := collect(t, srv.URL, probe.Options{Timeout: 50 * time.Millisecond})
+
+	if err == nil {
+		t.Error("Collect succeeded against a server that never answers, want a timeout error")
+	}
+}
+
+func TestCollectCapsBodyAt1MB(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(strings.Repeat("x", 2<<20)))
+	}))
+	defer srv.Close()
+
+	ev, err := collect(t, srv.URL, probe.Options{})
+
+	if err != nil {
+		t.Fatalf("Collect error: %v", err)
+	}
+	if !ev.ToolsList.Truncated || len(ev.ToolsList.Body) != 1<<20 {
+		t.Errorf("truncated = %v, body = %d bytes; want true, 1 MB", ev.ToolsList.Truncated, len(ev.ToolsList.Body))
+	}
+}
+
+func TestCollectRedirects(t *testing.T) {
+	other := mockserver.New(mockserver.Config{})
+	defer other.Close()
+	tests := []struct {
+		name       string
+		location   func(self string) string
+		wantStatus int
+	}{
+		{name: "same-host redirect is followed", location: func(self string) string { return self + "/final" }, wantStatus: http.StatusOK},
+		{name: "cross-host redirect is not followed", location: func(string) string { return other.URL + mockserver.Path }, wantStatus: http.StatusTemporaryRedirect},
+		{name: "redirect loop stops after 3", location: func(self string) string { return self + "/" }, wantStatus: http.StatusTemporaryRedirect},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var self string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/final" {
+					return
+				}
+				w.Header().Set("Location", tt.location(self))
+				w.WriteHeader(http.StatusTemporaryRedirect)
+			}))
+			defer srv.Close()
+			self = srv.URL
+
+			ev, err := collect(t, srv.URL, probe.Options{})
+
+			if err != nil {
+				t.Fatalf("Collect error: %v", err)
+			}
+			if ev.ToolsList.Status != tt.wantStatus {
+				t.Errorf("status = %d, want %d", ev.ToolsList.Status, tt.wantStatus)
+			}
+		})
+	}
+}
