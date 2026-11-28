@@ -132,13 +132,56 @@ func TestScanRefusesUnfinishedFeatures(t *testing.T) {
 		args       []string
 		wantStderr string
 	}{
-		{name: "config files", args: []string{"scan", "--config", "mcp.json"}, wantStderr: "arrives in milestone 3"},
 		{name: "json report", args: []string{"scan", "https://a.example", "--format", "json"}, wantStderr: "arrive in milestone 4"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			code, _, stderr := runCLI(tt.args...)
+
+			if code != cli.ExitError || !strings.Contains(stderr, tt.wantStderr) {
+				t.Errorf("exit %d, stderr %q; want 2 and %q", code, stderr, tt.wantStderr)
+			}
+		})
+	}
+}
+
+func writeConfig(t *testing.T, content string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "mcp.json")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return path
+}
+
+func TestScanConfig(t *testing.T) {
+	path := writeConfig(t, `{"mcpServers": {"files": {"command": "npx", "args": ["-y", "server-files"]}}}`)
+
+	code, stdout, stderr := runCLI("scan", "--config", path)
+
+	if code != cli.ExitOK || !strings.Contains(stdout, path+": files\n  Grade A") || stderr != "" {
+		t.Errorf("exit %d, stdout %q, stderr %q; want 0 and the files entry graded A", code, stdout, stderr)
+	}
+}
+
+func TestScanConfigErrors(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing.json")
+	tooLarge := writeConfig(t, `{"mcpServers": {}, "pad": "`+strings.Repeat("x", 1<<20)+`"}`)
+	empty := writeConfig(t, `{"mcpServers": {}}`)
+	tests := []struct {
+		name       string
+		path       string
+		wantStderr string
+	}{
+		{name: "missing file", path: missing, wantStderr: "--config: open " + missing},
+		{name: "larger than 1 MB", path: tooLarge, wantStderr: "is larger than 1 MB"},
+		{name: "no servers", path: empty, wantStderr: "no MCP servers found"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, _, stderr := runCLI("scan", "--config", tt.path)
 
 			if code != cli.ExitError || !strings.Contains(stderr, tt.wantStderr) {
 				t.Errorf("exit %d, stderr %q; want 2 and %q", code, stderr, tt.wantStderr)
