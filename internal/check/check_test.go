@@ -1,12 +1,45 @@
 package check_test
 
 import (
+	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/labibkamran/mcpwarden/internal/check"
 	"github.com/labibkamran/mcpwarden/internal/probe"
 )
+
+func catalogCheck(t *testing.T, id string) check.Check {
+	t.Helper()
+	catalog := check.Catalog()
+	i := slices.IndexFunc(catalog, func(c check.Check) bool { return c.ID == id })
+	if i < 0 {
+		t.Fatalf("rule %s is not in the catalog", id)
+	}
+	return catalog[i]
+}
+
+func assertSummary(t *testing.T, got []string, want string) {
+	t.Helper()
+	if want == "" {
+		if len(got) != 0 {
+			t.Errorf("findings = %q, want none", got)
+		}
+		return
+	}
+	if len(got) != 1 || !strings.Contains(got[0], want) {
+		t.Errorf("findings = %q, want one containing %q", got, want)
+	}
+}
+
+func exchange(status int, header ...string) *probe.Exchange {
+	h := http.Header{}
+	for i := 0; i+1 < len(header); i += 2 {
+		h.Set(header[i], header[i+1])
+	}
+	return &probe.Exchange{Status: status, Header: h}
+}
 
 func fixedCheck(id string, summaries ...string) check.Check {
 	return check.Check{

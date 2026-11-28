@@ -42,7 +42,7 @@ type Finding struct {
 }
 
 func Catalog() []Check {
-	return nil
+	return []Check{mw001()}
 }
 
 func Select(sel RuleSelection) []Check {
